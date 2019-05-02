@@ -79,3 +79,7 @@ lint/outputs/
 lint/tmp/
 # lint/reports/
 local.properties
+
+#OpenCV
+OpenCV/
+opencv/
