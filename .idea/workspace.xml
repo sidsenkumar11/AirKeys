@@ -50,7 +50,7 @@
         <repository>Google</repository>
       </library-update>
     </library-updates>
-    <last-search-timestamp>1556842485275</last-search-timestamp>
+    <last-search-timestamp>1556842615502</last-search-timestamp>
   </component>
   <component name="ChangeListManager">
     <list default="true" id="f4836701-d75e-46fe-b954-3d3518b496aa" name="Default Changelist" comment="">
@@ -159,7 +159,7 @@
     <option name="height" value="792" />
   </component>
   <component name="ProjectView">
-    <navigator proportions="" version="1">
+    <navigator currentView="ProjectPane" proportions="" version="1">
       <foldersAlwaysOnTop value="true" />
     </navigator>
     <panes>
