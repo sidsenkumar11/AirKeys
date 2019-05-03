@@ -92,3 +92,4 @@ opencv/
 .idea/workspace.xml
 .idea/
 app/app.iml
+*.iml
