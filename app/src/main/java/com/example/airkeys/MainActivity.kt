@@ -189,21 +189,22 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
         Imgproc.cvtColor(mRgba, hsv, Imgproc.COLOR_BGR2HSV)
 
         // Create a list of 10x10 squares to base a histogram off of.
-        val squares = arrayListOf<Mat>(Mat(10, 10, hsv.type()))
+        val squares = arrayListOf<Mat>(Mat(10 * total_rectangle, 10, hsv.type()))
 
         // Get total_rectangles 10x10 squares of pixels from the rectangle regions
         // to produce a histogram
         for (i in 0 until total_rectangle) {
             val roi = Rect(hand_rect_one_x[i], hand_rect_one_y[i], 10, 10)
             // TODO: Should we clone the submatrix? Is ths function correct at all?
-            for (row in 0 until 10) {
-                for (col in 0 until 10) {
-                    //squares[0] = hsv.submat(roi).get(row, col)
-                }
-            }
-            squares.add(hsv.submat(roi).clone())
-        }
+            val tmp = squares[0].submat(Rect(0, i*10, 10, 10))
+            hsv.submat(roi).copyTo(tmp)
 
+//            for (row in 0 until 10) {
+//                squares[0][i * 10] = hsv.submat(roi, )
+//                //squares[0] = hsv.submat(roi).get(row, col)
+//            }
+//            squares.add(hsv.submat(roi).clone())
+        }
         Imgproc.calcHist(squares, MatOfInt(0, 1), Mat(), hand_hist, MatOfInt(10, 10), MatOfFloat(0.toFloat(), 10.toFloat(), 0.toFloat(), 256.toFloat()))
         normalize(hand_hist, hand_hist, 0.0, 255.0, NORM_MINMAX)
     }
@@ -231,7 +232,7 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
 
         // Applies fixed-level threshold to each array element. We'll be converting it to a binary image.
         val thresh = Mat()
-        Imgproc.threshold(dst, thresh, 150.0, 255.0, Imgproc.THRESH_BINARY)
+        Imgproc.threshold(dst, thresh, 150.0, 255.0, Imgproc.THRESH_BINARY_INV)
 
         // Merges three thresh matrix to make 4 channels, since mRgba is a 4-channel matrix.
         val thresh4D = Mat()
@@ -448,8 +449,8 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
         // If we haven't created a histogram of skin samples yet, draw rectangles to help users align their hands where we'll sample.
         // Otherwise, draw finger-tracing circles.
         if (hand_hist_created) {
-//            manage_image_opr()
-            return hist_masking()
+            manage_image_opr()
+//            return hist_masking()
         } else {
             draw_rect()
         }
