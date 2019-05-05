@@ -10,5 +10,6 @@
             android:visibility="gone"
             android:id="@+id/camera_activity_view"
             opencv:show_fps="true"
-            opencv:camera_id="any" />
+            opencv:camera_id="any"
+            android:onClick="screenTapped" />
 </LinearLayout>
