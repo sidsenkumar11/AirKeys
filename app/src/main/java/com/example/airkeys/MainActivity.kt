@@ -16,6 +16,16 @@ import org.opencv.core.Core.*
 import org.opencv.imgproc.Imgproc
 import kotlin.collections.arrayListOf
 import java.util.LinkedList
+import org.opencv.core.Core
+import java.nio.file.Files.size
+import android.view.Surface.ROTATION_270
+import android.view.Surface.ROTATION_180
+import android.view.Surface.ROTATION_90
+import android.view.Surface.ROTATION_0
+import android.support.v4.view.ViewCompat.getDisplay
+import android.support.v4.view.ViewCompat.getRotation
+import android.view.Surface
+
 
 class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
 
@@ -99,7 +109,7 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
 
         // Show camera and set its listener
         setContentView(R.layout.show_camera)
-        mOpenCvCameraView = findViewById(R.id.camera_activity_view)
+        mOpenCvCameraView = findViewById(R.id.camera_activity_view) as JavaCameraView
         mOpenCvCameraView.visibility = SurfaceView.VISIBLE
         mOpenCvCameraView.setCvCameraViewListener(this)
     }
@@ -418,13 +428,26 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
         val cols = mRgba.cols()
 
         // Generate lists of points for rectangles
-        hand_rect_one_x = arrayListOf(6 * rows / 20, 6 * rows / 20, 6 * rows / 20, 9 * rows / 20, 9 * rows / 20, 9 * rows / 20, 12 * rows / 20,
-            12 * rows / 20, 12 * rows / 20)
-        hand_rect_one_y = arrayListOf(9 * cols / 20, 10 * cols / 20, 11 * cols / 20, 9 * cols / 20, 10 * cols / 20, 11 * cols / 20, 9 * cols / 20,
-            10 * cols / 20, 11 * cols / 20)
+//        hand_rect_one_x = arrayListOf(6 * rows / 20, 6 * rows / 20, 6 * rows / 20, 9 * rows / 20, 9 * rows / 20, 9 * rows / 20, 12 * rows / 20,
+//            12 * rows / 20, 12 * rows / 20)
+//        hand_rect_one_y = arrayListOf(9 * cols / 20, 10 * cols / 20, 11 * cols / 20, 9 * cols / 20, 10 * cols / 20, 11 * cols / 20, 9 * cols / 20,
+//            10 * cols / 20, 11 * cols / 20)
+        val biasX = 4
+        val biasY = -6
+        val divider = 15
+        hand_rect_one_x = arrayListOf(
+            (biasX+6) * rows / divider, (biasX+6) * rows / divider, (biasX+6) * rows / divider,
+            (biasX+9) * rows / divider, (biasX+9) * rows / divider, (biasX+9) * rows / divider,
+            (biasX+12) * rows / divider, (biasX+12) * rows / divider, (biasX+12) * rows / divider
+        )
+        hand_rect_one_y = arrayListOf(
+            (biasY+9) * cols / divider, (biasY+10) * cols / divider, (biasY+11) * cols / divider,
+            (biasY+9) * cols / divider, (biasY+10) * cols / divider, (biasY+11) * cols / divider,
+            (biasY+9) * cols / divider, (biasY+10) * cols / divider, (biasY+11) * cols / divider
+        )
 
-        hand_rect_two_x = hand_rect_one_x.map {it + 10}
-        hand_rect_two_y = hand_rect_one_y.map {it + 10}
+        hand_rect_two_x = hand_rect_one_x.map {it + 10} // original value -- > it + 10
+        hand_rect_two_y = hand_rect_one_y.map {it + 10} // original value -- > it + 10
 
         // Draw each rectangle
         for (i in 0 until total_rectangle) {
@@ -446,11 +469,12 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
 //        Imgproc.resize(mRgbaT, mRgbaF, mRgbaF.size(), 0.0, 0.0, 0)
 //        Core.flip(mRgbaF, mRgba, 1)
 
+
         // If we haven't created a histogram of skin samples yet, draw rectangles to help users align their hands where we'll sample.
         // Otherwise, draw finger-tracing circles.
         if (hand_hist_created) {
-            manage_image_opr()
-//            return hist_masking()
+//            manage_image_opr()
+            return hist_masking()
         } else {
             draw_rect()
         }
