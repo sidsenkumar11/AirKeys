@@ -457,7 +457,8 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
             draw_rect()
         }
 
-        System.gc()
+//        System.gc()
+//        Does not work since gc does not clear Mat() objects
 
         return mRgba
     }
