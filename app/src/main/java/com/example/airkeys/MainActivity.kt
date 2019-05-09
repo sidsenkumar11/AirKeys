@@ -235,16 +235,18 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
         Imgproc.threshold(dst, thresh, 150.0, 255.0, Imgproc.THRESH_BINARY_INV)
 
         // Merges three thresh matrix to make 4 channels, since mRgba is a 4-channel matrix.
-        val thresh4D = Mat()
-        merge(arrayListOf(thresh, thresh, thresh, thresh), thresh4D)
+        val thresh4D = Mat().also {
+            merge(arrayListOf(thresh, thresh, thresh, thresh), it)
+        }
 
         // 4. In the original image, filter out all pixels that aren't part of the hand.
-        val retArr = Mat()
-        bitwise_and(mRgba, thresh4D, retArr)
+        return Mat().also {
+            bitwise_and(mRgba, thresh4D, it)
+        }
 //        Log.i(TAG, "ABOUT TO DUMP")
 //        Log.i(TAG, retArr.dump())
 //        Log.i(TAG, "FINISHED DUMP")
-        return retArr
+//        return retArr
     }
 
     /**
@@ -449,11 +451,13 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
         // If we haven't created a histogram of skin samples yet, draw rectangles to help users align their hands where we'll sample.
         // Otherwise, draw finger-tracing circles.
         if (hand_hist_created) {
-            manage_image_opr()
-//            return hist_masking()
+//            manage_image_opr()
+            return hist_masking()
         } else {
             draw_rect()
         }
+
+        System.gc()
 
         return mRgba
     }
