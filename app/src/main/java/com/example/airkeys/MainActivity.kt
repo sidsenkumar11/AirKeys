@@ -40,6 +40,12 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
     lateinit var mRgba: Mat
     lateinit var mRgbaT: Mat
     lateinit var mRgbaF: Mat
+    lateinit var hist_hsv: Mat
+    lateinit var hist_dst: Mat
+    lateinit var hist_thresh: Mat
+    lateinit var hist_thresh4D: Mat
+    lateinit var hist_retArr: Mat
+    lateinit var disc: Mat
 
     // After the OpenCV libraries are initialized and loaded, OpenCV can run a function for you.
     // We define this function such that it enables the camera.
@@ -149,6 +155,14 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
         mRgbaT = Mat(height, width, CvType.CV_8UC4)
         mRgbaF = Mat(height, width, CvType.CV_8UC4)
         hand_hist = Mat()
+
+        hist_hsv = Mat()
+        hist_dst = Mat()
+        hist_thresh = Mat()
+        hist_thresh4D = Mat()
+        hist_retArr = Mat()
+        disc = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, Size(31.0, 31.0))
+
     }
 
     override fun onCameraViewStopped() {
@@ -201,6 +215,22 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
         // Create a list of 10x10 squares to base a histogram off of.
         val squares = arrayListOf<Mat>(Mat(10 * total_rectangle, 10, hsv.type()))
 
+        Log.e("HIST", squares.size.toString() + " " +
+                squares[0].size().toString() + " " +
+                squares[0][0,0].size.toString() + " " +
+                squares[0][0,0][0]
+        )
+        var matrix = ""
+        for(x in 0 until 90) {
+            matrix += "[\t"
+            for(y in 0 until 10) {
+                matrix += "[" + squares[0][x, y][0] + ", " + squares[0][x, y][1] + ", " + squares[0][x, y][2] + "],"
+            }
+            matrix += "\t]\n\n\n"
+        }
+
+        Log.e("MATRIX", squares[0].dump())
+
         // Get total_rectangles 10x10 squares of pixels from the rectangle regions
         // to produce a histogram
         for (i in 0 until total_rectangle) {
@@ -217,6 +247,8 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
         }
         Imgproc.calcHist(squares, MatOfInt(0, 1), Mat(), hand_hist, MatOfInt(10, 10), MatOfFloat(0.toFloat(), 10.toFloat(), 0.toFloat(), 256.toFloat()))
         normalize(hand_hist, hand_hist, 0.0, 255.0, NORM_MINMAX)
+
+        Log.e("HAND_HIST", hand_hist.dump())
     }
 
     /**
@@ -225,36 +257,30 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
     fun hist_masking(): Mat {
         // 1. Convert RGB to HSV (hue, saturation, value).
         // Done because RGB contains information about brightness, and we don't want that.
-        val hsv = Mat()
-        Imgproc.cvtColor(mRgba, hsv, Imgproc.COLOR_BGR2HSV)
+        Imgproc.cvtColor(mRgba, hist_hsv, Imgproc.COLOR_BGR2HSV)
 
         // 2. Calculates the back projection of the hand-histogram (but only the HS channels since we want to strip brightness)..
         // Range of values for Hue: 0-179, Value: 0-255.
-        val dst = Mat()
-        Imgproc.calcBackProject(arrayListOf(hsv), MatOfInt(0, 1), hand_hist, dst, MatOfFloat(0.toFloat(), 180.toFloat(), 0.toFloat(), 256.toFloat()), 1.toDouble())
+        Imgproc.calcBackProject(arrayListOf(hist_hsv), MatOfInt(0, 1), hand_hist, hist_dst, MatOfFloat(0.toFloat(), 180.toFloat(), 0.toFloat(), 256.toFloat()), 1.toDouble())
 
         // 3. Smooth the filtered image
         // Create a structuring element for morphological operations. We want a disk-like image.
-        val disc = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, Size(31.0, 31.0))
 
         // Convolve the image with the structuring element
-        Imgproc.filter2D(dst, dst, -1, disc)
+        Imgproc.filter2D(hist_dst, hist_dst, -1, disc)
 
         // Applies fixed-level threshold to each array element. We'll be converting it to a binary image.
-        val thresh = Mat()
-        Imgproc.threshold(dst, thresh, 150.0, 255.0, Imgproc.THRESH_BINARY_INV)
+        Imgproc.threshold(hist_dst, hist_thresh, 150.0, 255.0, Imgproc.THRESH_BINARY_INV)
 
         // Merges three thresh matrix to make 4 channels, since mRgba is a 4-channel matrix.
-        val thresh4D = Mat()
-        merge(arrayListOf(thresh, thresh, thresh, thresh), thresh4D)
+        merge(arrayListOf(hist_thresh, hist_thresh, hist_thresh, hist_thresh), hist_thresh4D)
 
         // 4. In the original image, filter out all pixels that aren't part of the hand.
-        val retArr = Mat()
-        bitwise_and(mRgba, thresh4D, retArr)
+        bitwise_and(mRgba, hist_thresh4D, hist_retArr)
 //        Log.i(TAG, "ABOUT TO DUMP")
 //        Log.i(TAG, retArr.dump())
 //        Log.i(TAG, "FINISHED DUMP")
-        return retArr
+        return hist_retArr
     }
 
     /**
