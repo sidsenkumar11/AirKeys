@@ -408,7 +408,7 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
         }
 
         // Draw trailing circles.
-        draw_circles()
+        this.draw_circles()
     }
 
     /**
@@ -420,10 +420,10 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
         val cols = mRgba.cols()
 
         // Generate lists of points for rectangles
-        hand_rect_one_x = arrayListOf(6 * rows / 20, 6 * rows / 20, 6 * rows / 20, 9 * rows / 20, 9 * rows / 20, 9 * rows / 20, 12 * rows / 20,
-            12 * rows / 20, 12 * rows / 20)
-        hand_rect_one_y = arrayListOf(9 * cols / 20, 10 * cols / 20, 11 * cols / 20, 9 * cols / 20, 10 * cols / 20, 11 * cols / 20, 9 * cols / 20,
-            10 * cols / 20, 11 * cols / 20)
+        hand_rect_one_x = arrayListOf((6 * rows) / 20, (6 * rows) / 20, (6 * rows) / 20, (9 * rows) / 20, (9 * rows) / 20, (9 * rows) / 20, (12 * rows) / 20,
+            (12 * rows) / 20, (12 * rows) / 20)
+        hand_rect_one_y = arrayListOf((9 * cols) / 20, (10 * cols) / 20, (11 * cols) / 20, (9 * cols) / 20, (10 * cols) / 20, (11 * cols) / 20, (9 * cols) / 20,
+            (10 * cols) / 20, (11 * cols) / 20)
 
         hand_rect_two_x = hand_rect_one_x.map {it + 10}
         hand_rect_two_y = hand_rect_one_y.map {it + 10}
