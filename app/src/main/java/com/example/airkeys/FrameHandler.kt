@@ -13,7 +13,10 @@ object FrameHandler {
     private lateinit var mFiltered: Mat
     private lateinit var mThreshed: Mat
     private lateinit var mThreshed3D: Mat
-    private lateinit var mHand: Mat
+    private lateinit var mGrayHand: Mat
+    private lateinit var mGrayThresh: Mat
+    private lateinit var hull: MatOfInt
+    private lateinit var defects: MatOfInt4
 
     // One-time vars needed for histograms
     private lateinit var histogram: Mat
@@ -42,11 +45,16 @@ object FrameHandler {
         mFiltered = Mat()
         mThreshed = Mat()
         mThreshed3D = Mat()
-        mHand = Mat()
 
         // Create a structuring element for morphological operations. We want a disk-like image.
         disc = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, Size(31.0, 31.0))
         this.emulated = emulated
+
+        // Fingertip Detection
+        hull = MatOfInt()
+        defects = MatOfInt4()
+        mGrayHand = Mat()
+        mGrayThresh = Mat()
     }
 
     /**
@@ -54,7 +62,6 @@ object FrameHandler {
      * After it's created, draw circles tracking their finger tips.
      */
     fun process(input: Mat) {
-        // Set class variable
         this.mRgb = input
 
         // Rotate 90 degrees if on phone
@@ -74,17 +81,17 @@ object FrameHandler {
         // draw rectangles to help users align their hands where we'll sample.
         // Otherwise, draw finger-tracing circles.
         if (!histCreated) {
-            draw_rect()
+            drawRects()
         } else {
-//            com.example.airkeys.manage_image_opr()
-            applyHistMask()
+            getFingerTip()
+            drawCircles()
         }
     }
 
     /**
      * Create the hand histogram from the current frame's content.
      */
-    fun createHist() {
+    private fun createHist() {
         // Convert RGB to HSV
         val hsv = Mat()
         Imgproc.cvtColor(mRgb, hsv, Imgproc.COLOR_RGB2HSV)
@@ -112,7 +119,7 @@ object FrameHandler {
     /**
      * Mask the current frame with our histogram to filter everything but the hand.
      */
-    fun applyHistMask() {
+    private fun applyHistMask() {
         // 1. Convert RGB to HSV (hue, saturation, value).
         // Done because RGB contains information about brightness, and we don't want that.
         Imgproc.cvtColor(mRgb, mHsv, Imgproc.COLOR_RGB2HSV)
@@ -137,94 +144,85 @@ object FrameHandler {
     }
 
     /**
-     * Track finger movements and draws trailing circles.
+     * Get location of finger tip.
      * Assumes hand histogram has already been created.
      */
-    fun manage_image_opr() {
+    private fun getFingerTip() {
 
         // 1. Mask away everything but the hand.
         applyHistMask()
 
-        // 2. Identify the finger tip.
-        val contour_list = contours()
-        Log.w(TAG, "Size of contour list: " + contour_list.size.toString())
+        // 2. Get the max area contour and calculate its centroid.
+        val contours = contours()
+        if (contours.isEmpty()) {
+            // No hand detected on screen!
+            if (traverse_point.isNotEmpty()) traverse_point.removeFirst()
+            return
+        }
+        val maxContour = maxContour(contours)
+        val maxCentroid = centroid(maxContour)
 
-        // Get the max area contour and calculate its com.example.airkeys.centroid.
-        val max_cont: MatOfPoint = max_contour(contour_list)
-        val cnt_centroid = centroid(max_cont)
+        // 3. Draw a circle at the centroid.
+        Imgproc.circle(mRgb, maxCentroid, 5, Scalar(255.0, 0.0, 255.0), -1)
 
-        // Draw a circle at the com.example.airkeys.centroid.
-        Imgproc.circle(mRgb, cnt_centroid, 5, Scalar(255.0, 0.0, 255.0), -1)
+        // 4. Compute convex hull of hand and get convexity defects (space between hull and actual contour).
+        Imgproc.convexHull(maxContour, hull)
+        Imgproc.convexityDefects(maxContour, hull, defects)
 
-        // Compute convex hull of hand figure.
-        val hull = MatOfInt()
-        Imgproc.convexHull(max_cont, hull)
-
-        // Compute convexity defects (spaces between hull and actual hand contour).
-        val defects = MatOfInt4()
-        Imgproc.convexityDefects(max_cont, hull, defects)
-
-        // Compute furthest point from a defect to the com.example.airkeys.centroid. This point is assumed to be the finger tip.
-        val far_point = farthest_point(defects, max_cont, cnt_centroid)
-        if (far_point != null) {
-            Log.w(TAG, "Centroid : " + cnt_centroid.toString() + ", farthest Point : " + far_point.toString())
-
+        // 5. Compute furthest point from a defect to the centroid. This point is assumed to be the finger tip.
+        val fingerPoint = furthestPoint(defects, maxContour, maxCentroid)
+        if (fingerPoint != null) {
             // Create a circle at the finger tip.
-            Imgproc.circle(mRgb, far_point, 5, Scalar(0.0, 0.0, 255.0), -1)
+            Imgproc.circle(mRgb, fingerPoint, 5, Scalar(0.0, 0.0, 255.0), -1)
 
             // Add location to list of recently seen fingertip positions.
             if (traverse_point.size < 20) {
-                traverse_point.add(far_point)
+                traverse_point.add(fingerPoint)
             } else {
                 traverse_point.removeFirst()
-                traverse_point.add(far_point)
+                traverse_point.add(fingerPoint)
             }
         }
-
-        // Draw trailing circles.
-        draw_circles()
     }
 
     /**
-     * Finds com.example.airkeys.contours in an input image. Contours are useful for object detection/recognition.
+     * Finds contours in an input image. Contours are useful for object detection/recognition.
      */
-    fun contours(): List<MatOfPoint> {
-        // Convert to grayscale
-        val gray_hist_mask_image = Mat()
-        Imgproc.cvtColor(mRgb, gray_hist_mask_image, Imgproc.COLOR_RGB2GRAY)
+    private fun contours(): List<MatOfPoint> {
+        // Convert RGB to grayscale
+        Imgproc.cvtColor(mRgb, mGrayHand, Imgproc.COLOR_RGB2GRAY)
 
-        // Applies fixed-level threshold to each array element so we can get com.example.airkeys.contours from it.
+        // Applies fixed-level threshold to each array element so we can get contours from it.
         // This converts the grayscale image to a binary image.
-        val thresh = Mat()
-        Imgproc.threshold(gray_hist_mask_image, thresh,0.0, 255.0, Imgproc.THRESH_BINARY)
+        Imgproc.threshold(mGrayHand, mGrayThresh,0.0, 255.0, Imgproc.THRESH_BINARY)
 
-        // Find com.example.airkeys.contours in a binary image.
-        val conts = arrayListOf<MatOfPoint>()
-        Imgproc.findContours(thresh, conts, Mat(), Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE)
-        return conts
+        // Find contours in a binary image.
+        val contours = arrayListOf<MatOfPoint>()
+        Imgproc.findContours(mGrayThresh, contours, Mat(), Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE)
+        return contours
     }
 
     /**
      * Given a list of com.example.airkeys.contours, returns the contour with the greatest area.
      */
-    fun max_contour(contour_list: List<MatOfPoint>): MatOfPoint {
-        var max_i = 0
-        var max_area = 0.0
+    private fun maxContour(contour_list: List<MatOfPoint>): MatOfPoint {
+        var maxIndex = 0
+        var maxArea = 0.0
         for (i in 0 until contour_list.size-1) {
             val cnt = contour_list[i]
-            val area_cnt = Imgproc.contourArea(cnt)
-            if (area_cnt > max_area) {
-                max_area = area_cnt
-                max_i = i
+            val contourArea = Imgproc.contourArea(cnt)
+            if (contourArea > maxArea) {
+                maxArea = contourArea
+                maxIndex = i
             }
         }
-        return contour_list[max_i]
+        return contour_list[maxIndex]
     }
 
     /**
      * Computes the com.example.airkeys.centroid of the hand-contour.
      */
-    fun centroid(max_contour: Mat): Point? {
+    private fun centroid(max_contour: Mat): Point? {
         val moment = Imgproc.moments(max_contour)
         if (moment.m00 != 0.0) {
             val cx = moment.m10 / moment.m00
@@ -234,7 +232,7 @@ object FrameHandler {
         return null
     }
 
-//    fun argMax(vals: Mat): Int {
+//    private fun argMax(vals: Mat): Int {
 //
 //        var max_i = 0
 //        var max_val = vals.get(0, 0)
@@ -253,7 +251,7 @@ object FrameHandler {
      * Computes the furthest defect point from the com.example.airkeys.centroid of the hand contour.
      * This point is assumed to be the location of a finger-tip.
      */
-    fun farthest_point(defects: MatOfInt4, contour: MatOfPoint, centroid: Point?): Point? {
+    private fun furthestPoint(defects: MatOfInt4, contour: MatOfPoint, centroid: Point?): Point? {
         if (centroid == null) return null
 
         // MatOfInt4: 1 element matrix at 0,0 -> n rows, 1 column matrix -> each row has 4 ints
@@ -290,7 +288,7 @@ object FrameHandler {
     /**
      * Draws several rectangles in a frame.
      */
-    fun draw_rect() {
+    private fun drawRects() {
         // Get dimensions
         val rows = mRgb.rows()
         val cols = mRgb.cols()
@@ -316,7 +314,7 @@ object FrameHandler {
      * Draws circles in the last several spots that a finger was last seen.
      * The circles decrease in size to indicate they were seen longer ago.
      */
-    fun draw_circles() {
+    private fun drawCircles() {
         for (i in 0 until traverse_point.size) {
             Imgproc.circle(mRgb, traverse_point[i], 5 - (5 * i * 3) / 100, Scalar(0.0, 255.0, 255.0), -1)
         }
