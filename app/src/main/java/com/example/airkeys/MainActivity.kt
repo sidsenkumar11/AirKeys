@@ -22,6 +22,7 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
     private lateinit var mOpenCvCameraView: CameraBridgeViewBase
     private val MY_PERMISSIONS_REQUEST_CAMERA = 123
     private var emulated = false
+    private lateinit var mRgb: Mat
 
     /**
      * Set camera view and load OpenCV libraries.
@@ -57,6 +58,7 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
 
         // Initialize matrices
         FrameHandler.init(emulated)
+        mRgb = Mat()
     }
 
     /**
@@ -131,11 +133,9 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
     override fun onCameraViewStopped() {}
     override fun onCameraFrame(inputFrame: CameraBridgeViewBase.CvCameraViewFrame): Mat {
         val mRgba = inputFrame.rgba()
-        val mRgb = Mat()
         /*
             OpenCV stupidity - https://github.com/opencv/opencv/issues/11118
             For some emulators, frame.rgba() will actually return bgra so the colors will be blueish.
-            If your emulator is blueish, you can fix it by messing with the following line.
         */
         if (emulated) Imgproc.cvtColor(mRgba, mRgba, Imgproc.COLOR_BGRA2RGBA)
 

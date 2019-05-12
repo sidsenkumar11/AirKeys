@@ -4,6 +4,7 @@ import android.util.Log
 import org.opencv.core.*
 import org.opencv.imgproc.Imgproc
 import java.util.*
+import kotlinx.coroutines.*
 
 object FrameHandler {
 
@@ -21,10 +22,10 @@ object FrameHandler {
     // One-time vars needed for histograms
     private lateinit var histogram: Mat
     private lateinit var disc: Mat
-    private lateinit var hand_rect_one_x: List<Int>
-    private lateinit var hand_rect_one_y: List<Int>
-    private lateinit var hand_rect_two_x: List<Int>
-    private lateinit var hand_rect_two_y: List<Int>
+    private lateinit var hand_rect_row_nw: List<Int>
+    private lateinit var hand_rect_col_nw: List<Int>
+    private lateinit var hand_rect_row_se: List<Int>
+    private lateinit var hand_rect_col_se: List<Int>
 
     // Variables and constants
     private var emulated: Boolean = true
@@ -71,7 +72,7 @@ object FrameHandler {
             Core.flip(mRgb, mRgb, Core.ROTATE_90_COUNTERCLOCKWISE)
         }
 
-        // Create the histogram if need be
+        // Create the histogram if the screen was tapped
         if (shouldCreateHist) {
             createHist()
             shouldCreateHist = false
@@ -101,13 +102,13 @@ object FrameHandler {
 
         // Get several 10x10 squares of pixels from the rectangle regions
         for (i in 0 until numRects) {
-            val roi = Rect(hand_rect_one_x[i], hand_rect_one_y[i], 10, 10)
+            val roi = Rect(hand_rect_col_nw[i], hand_rect_row_nw[i], 10, 10)
             val tmp = histSrcList[0].submat(Rect(0, i*10, 10, 10))
             hsv.submat(roi).copyTo(tmp)
         }
 
         // Compute the histogram (using only Hue and Saturation) and normalize values to be between 0 and 255.
-        Imgproc.calcHist(histSrcList, MatOfInt(0, 1), Mat(), histogram, MatOfInt(90, 10),
+        Imgproc.calcHist(histSrcList, MatOfInt(0, 1), Mat(), histogram, MatOfInt(180, 256),
                          MatOfFloat(0.toFloat(), 180.toFloat(), 0.toFloat(), 256.toFloat()))
         Core.normalize(histogram, histogram, 0.0, 255.0, Core.NORM_MINMAX)
 
@@ -124,7 +125,7 @@ object FrameHandler {
         // Done because RGB contains information about brightness, and we don't want that.
         Imgproc.cvtColor(mRgb, mHsv, Imgproc.COLOR_RGB2HSV)
 
-        // 2. Calculates the back projection of the hand-histogram (but only Hue and Saturation channels)
+        // 2. Calculates the back projection of the hand-histogram.
         // Range of values for Hue: 0-179, Value: 0-255.
         Imgproc.calcBackProject(arrayListOf(mHsv), MatOfInt(0, 1), histogram, mFiltered,
                                 MatOfFloat(0.toFloat(), 180.toFloat(), 0.toFloat(), 256.toFloat()), 1.toDouble())
@@ -134,17 +135,17 @@ object FrameHandler {
         Imgproc.filter2D(mFiltered, mFiltered, -1, disc)
 
         // b) Applies fixed-level threshold to each array element. We'll be converting it to a binary image.
-        Imgproc.threshold(mFiltered, mThreshed, 150.0, 255.0, Imgproc.THRESH_BINARY)
+        Imgproc.threshold(mFiltered, mThreshed, 100.0, 255.0, Imgproc.THRESH_BINARY)
 
         // c) Merges thresh matrices to make 3 channels, since mRgba is a 3-channel matrix.
         Core.merge(arrayListOf(mThreshed, mThreshed, mThreshed), mThreshed3D)
 
-        // 4. In the original image, filter out all pixels that aren't part of the hand.
+        // 4. In the original image, filter out all pixels that aren't above our threshold.
         Core.bitwise_and(mRgb, mThreshed3D, mRgb)
     }
 
     /**
-     * Get location of finger tip.
+     * Get location of finger tip and draw a circle there.
      * Assumes hand histogram has already been created.
      */
     private fun getFingerTip() {
@@ -161,6 +162,11 @@ object FrameHandler {
         }
         val maxContour = maxContour(contours)
         val maxCentroid = centroid(maxContour)
+        if (maxCentroid == null)  {
+            // No hand detected on screen!
+            if (traverse_point.isNotEmpty()) traverse_point.removeFirst()
+            return
+        }
 
         // 3. Draw a circle at the centroid.
         Imgproc.circle(mRgb, maxCentroid, 5, Scalar(255.0, 0.0, 255.0), -1)
@@ -203,7 +209,7 @@ object FrameHandler {
     }
 
     /**
-     * Given a list of com.example.airkeys.contours, returns the contour with the greatest area.
+     * Given a list of contours, returns the contour with the greatest area.
      */
     private fun maxContour(contour_list: List<MatOfPoint>): MatOfPoint {
         var maxIndex = 0
@@ -220,7 +226,7 @@ object FrameHandler {
     }
 
     /**
-     * Computes the com.example.airkeys.centroid of the hand-contour.
+     * Computes the centroid of the hand-contour.
      */
     private fun centroid(max_contour: Mat): Point? {
         val moment = Imgproc.moments(max_contour)
@@ -248,7 +254,7 @@ object FrameHandler {
 //    }
 
     /**
-     * Computes the furthest defect point from the com.example.airkeys.centroid of the hand contour.
+     * Computes the furthest defect point from the centroid of the hand contour.
      * This point is assumed to be the location of a finger-tip.
      */
     private fun furthestPoint(defects: MatOfInt4, contour: MatOfPoint, centroid: Point?): Point? {
@@ -294,19 +300,19 @@ object FrameHandler {
         val cols = mRgb.cols()
 
         // Generate lists of points for rectangles
-        hand_rect_one_x = arrayListOf(6 * rows / 20, 6 * rows / 20, 6 * rows / 20, 9 * rows / 20, 9 * rows / 20, 9 * rows / 20, 12 * rows / 20,
-            12 * rows / 20, 12 * rows / 20)
-        hand_rect_one_y = arrayListOf(9 * cols / 20, 10 * cols / 20, 11 * cols / 20, 9 * cols / 20, 10 * cols / 20, 11 * cols / 20, 9 * cols / 20,
+        hand_rect_row_nw = arrayListOf(6 * rows / 20, 6 * rows / 20, 6 * rows / 20, 10 * rows / 20, 10 * rows / 20, 10 * rows / 20, 14 * rows / 20,
+            14 * rows / 20, 14 * rows / 20)
+        hand_rect_col_nw = arrayListOf(9 * cols / 20, 10 * cols / 20, 11 * cols / 20, 9 * cols / 20, 10 * cols / 20, 11 * cols / 20, 9 * cols / 20,
             10 * cols / 20, 11 * cols / 20)
 
-        hand_rect_two_x = hand_rect_one_x.map {it + 10}
-        hand_rect_two_y = hand_rect_one_y.map {it + 10}
+        hand_rect_row_se = hand_rect_row_nw.map {it + 10}
+        hand_rect_col_se= hand_rect_col_nw.map {it + 10}
 
         // Draw each rectangle
         for (i in 0 until numRects) {
             Imgproc.rectangle(
-                mRgb, Point(hand_rect_one_x[i].toDouble(), hand_rect_one_y[i].toDouble()),
-                Point(hand_rect_two_x[i].toDouble(), hand_rect_two_y[i].toDouble()), Scalar(0.0, 255.0, 0.0), 1)
+                mRgb, Point(hand_rect_col_nw[i].toDouble(), hand_rect_row_nw[i].toDouble()),
+                Point(hand_rect_col_se[i].toDouble(), hand_rect_row_se[i].toDouble()), Scalar(0.0, 255.0, 0.0), 1)
         }
     }
 
@@ -323,11 +329,9 @@ object FrameHandler {
     /**
      * Resizes the frame dimensions by some percentage.
      */
-    fun rescale_frame(wpercent: Int = 130, hpercent: Int = 130) {
+    fun rescaleFrame(wpercent: Int = 130, hpercent: Int = 130) {
         val width = mRgb.width() * wpercent / 100.0
         val height = mRgb.height() * hpercent / 100.0
-
-        // TODO: Should we use same matrix for destination? Should fx = 0 and fy = 0?
         Imgproc.resize(mRgb, mRgb, Size(width, height), 0.0, 0.0, Imgproc.INTER_AREA)
     }
 }
