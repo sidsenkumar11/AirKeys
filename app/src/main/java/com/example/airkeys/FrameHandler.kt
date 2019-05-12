@@ -124,6 +124,7 @@ object FrameHandler {
         // 1. Convert RGB to HSV (hue, saturation, value).
         // Done because RGB contains information about brightness, and we don't want that.
         Imgproc.cvtColor(mRgb, mHsv, Imgproc.COLOR_RGB2HSV)
+        Imgproc.GaussianBlur(mHsv, mHsv, Size(5.0, 5.0),0.0)
 
         // 2. Calculates the back projection of the hand-histogram.
         // Range of values for Hue: 0-179, Value: 0-255.
@@ -135,7 +136,7 @@ object FrameHandler {
         Imgproc.filter2D(mFiltered, mFiltered, -1, disc)
 
         // b) Applies fixed-level threshold to each array element. We'll be converting it to a binary image.
-        Imgproc.threshold(mFiltered, mThreshed, 100.0, 255.0, Imgproc.THRESH_BINARY)
+        Imgproc.threshold(mFiltered, mThreshed, 45.0, 255.0, Imgproc.THRESH_BINARY)
 
         // c) Merges thresh matrices to make 3 channels, since mRgba is a 3-channel matrix.
         Core.merge(arrayListOf(mThreshed, mThreshed, mThreshed), mThreshed3D)
@@ -153,7 +154,7 @@ object FrameHandler {
         // 1. Mask away everything but the hand.
         applyHistMask()
 
-        // 2. Get the max area contour and calculate its centroid.
+        // 2. Get the max area contour (assumed to be the hand) and calculate its centroid.
         val contours = contours()
         if (contours.isEmpty()) {
             // No hand detected on screen!
@@ -161,22 +162,21 @@ object FrameHandler {
             return
         }
         val maxContour = maxContour(contours)
-        val maxCentroid = centroid(maxContour)
-        if (maxCentroid == null)  {
-            // No hand detected on screen!
+        val handCentroid = centroid(maxContour)
+        if (handCentroid == null)  {
             if (traverse_point.isNotEmpty()) traverse_point.removeFirst()
             return
         }
 
         // 3. Draw a circle at the centroid.
-        Imgproc.circle(mRgb, maxCentroid, 5, Scalar(255.0, 0.0, 255.0), -1)
+        Imgproc.circle(mRgb, handCentroid, 5, Scalar(255.0, 0.0, 255.0), -1)
 
         // 4. Compute convex hull of hand and get convexity defects (space between hull and actual contour).
         Imgproc.convexHull(maxContour, hull)
         Imgproc.convexityDefects(maxContour, hull, defects)
 
         // 5. Compute furthest point from a defect to the centroid. This point is assumed to be the finger tip.
-        val fingerPoint = furthestPoint(defects, maxContour, maxCentroid)
+        val fingerPoint = furthestPoint(defects, maxContour, handCentroid)
         if (fingerPoint != null) {
             // Create a circle at the finger tip.
             Imgproc.circle(mRgb, fingerPoint, 5, Scalar(0.0, 0.0, 255.0), -1)
@@ -238,57 +238,39 @@ object FrameHandler {
         return null
     }
 
-//    private fun argMax(vals: Mat): Int {
-//
-//        var max_i = 0
-//        var max_val = vals.get(0, 0)
-//        for (i in 0 until vals.rows()) {
-//            for (j in 0 until vals.cols()) {
-//                if (vals.get(i, j) > max_val) {
-//                    max_val = vals.get(i, j)
-//                    max_i = vals.cols() * i + j)
-//                }
-//            }
-//        }
-//        return max_i
-//    }
-
     /**
      * Computes the furthest defect point from the centroid of the hand contour.
      * This point is assumed to be the location of a finger-tip.
      */
-    private fun furthestPoint(defects: MatOfInt4, contour: MatOfPoint, centroid: Point?): Point? {
-        if (centroid == null) return null
-
-        // MatOfInt4: 1 element matrix at 0,0 -> n rows, 1 column matrix -> each row has 4 ints
-//
-//        val s = defects.get(0, 0)[0].toInt()
-//        val cx = com.example.airkeys.centroid.x
-//        val cy = com.example.airkeys.centroid.y
-//
-//        val x: Mat = contour.get(s, 0)
-//        val y = contour.get(s, 0)
-//
-//        val diffx = Mat()
-//        subtract(x, cx, diffx)
-//        val xp = Mat()
-//        pow(diffx, 2.0, xp)
-//
-//        val sumMat = Mat()
-//        sum(xp, yp, sumMat)
-//        val distMat = Mat()
-//        sqrt(sumMat, distMat)
-//        val dist_max_i = argMax(distMat)
-//
-//        if (dist_max_i < s.length) {
-//            val farthest_defect = s[dist_max_i]
-//            com.example.airkeys.farthest_point = contour[farthest_defect][0]
-//            return com.example.airkeys.farthest_point
-//        } else {
-//            return null
+    private fun furthestPoint(defects: MatOfInt4, contour: MatOfPoint, centroid: Point): Point? {
+//        // Min Row
+//        var maxRow = 0
+//        var maxPointValue = contour.get(0, 0)[1]
+//        for (i in 0 until contour.rows()) {
+//            val rowPoint = contour.get(i, 0)[1]
+//            if (rowPoint < maxPointValue) {
+//                maxPointValue = rowPoint
+//                maxRow = i
+//            }
 //        }
-        val nums = contour.get(0, 0)
-        return Point(nums[0], nums[1])
+//        val maxPoint = contour.get(maxRow, 0)
+//        return Point(maxPoint[0], maxPoint[1])
+
+        // Max Distance
+        val cenRow = centroid.y
+        val cenCol = centroid.x
+        var maxPoint = contour.get(0, 0)
+        var maxDist = 0.0
+        for (i in 0 until contour.rows()) {
+            val conRow = contour.get(i, 0)[1]
+            val conCol = contour.get(i, 0)[0]
+            val dist = Math.sqrt(Math.pow(cenRow - conRow, 2.0) + Math.pow(cenCol - conCol, 2.0))
+            if (dist > maxDist) {
+                maxDist = dist
+                maxPoint = contour.get(i, 0)
+            }
+        }
+        return Point(maxPoint[0], maxPoint[1])
     }
 
     /**
@@ -300,8 +282,8 @@ object FrameHandler {
         val cols = mRgb.cols()
 
         // Generate lists of points for rectangles
-        hand_rect_row_nw = arrayListOf(6 * rows / 20, 6 * rows / 20, 6 * rows / 20, 10 * rows / 20, 10 * rows / 20, 10 * rows / 20, 14 * rows / 20,
-            14 * rows / 20, 14 * rows / 20)
+        hand_rect_row_nw = arrayListOf(6 * rows / 20, 6 * rows / 20, 6 * rows / 20, 8 * rows / 20, 8 * rows / 20, 8 * rows / 20, 10 * rows / 20,
+            10 * rows / 20, 10 * rows / 20)
         hand_rect_col_nw = arrayListOf(9 * cols / 20, 10 * cols / 20, 11 * cols / 20, 9 * cols / 20, 10 * cols / 20, 11 * cols / 20, 9 * cols / 20,
             10 * cols / 20, 11 * cols / 20)
 
@@ -335,3 +317,50 @@ object FrameHandler {
         Imgproc.resize(mRgb, mRgb, Size(width, height), 0.0, 0.0, Imgproc.INTER_AREA)
     }
 }
+
+// ----------------------------------------------------------------
+// Experimental Code Notes
+// ----------------------------------------------------------------
+
+//    private fun furthestPoint(defects: MatOfInt4, contour: MatOfPoint, centroid: Point): Point? {
+//        val s = defects.get(0, 0)[0].toInt()
+//        val cx = centroid.x
+//        val cy = centroid.y
+//
+//        val x: Mat = contour.get(s, 0)
+//        val y = contour.get(s, 0)
+//
+//        val diffx = Mat()
+//        subtract(x, cx, diffx)
+//        val xp = Mat()
+//        pow(diffx, 2.0, xp)
+//
+//        val sumMat = Mat()
+//        sum(xp, yp, sumMat)
+//        val distMat = Mat()
+//        sqrt(sumMat, distMat)
+//        val dist_max_i = argMax(distMat)
+//
+//        if (dist_max_i < s.length) {
+//            val farthest_defect = s[dist_max_i]
+//            farthest_point = contour[farthest_defect][0]
+//            return farthest_point
+//        } else {
+//            return null
+//        }
+//    }
+
+//    private fun argMax(vals: Mat): Int {
+//
+//        var max_i = 0
+//        var max_val = vals.get(0, 0)
+//        for (i in 0 until vals.rows()) {
+//            for (j in 0 until vals.cols()) {
+//                if (vals.get(i, j) > max_val) {
+//                    max_val = vals.get(i, j)
+//                    max_i = vals.cols() * i + j)
+//                }
+//            }
+//        }
+//        return max_i
+//    }

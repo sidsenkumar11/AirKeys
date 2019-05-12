@@ -137,7 +137,10 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
             OpenCV stupidity - https://github.com/opencv/opencv/issues/11118
             For some emulators, frame.rgba() will actually return bgra so the colors will be blueish.
         */
-        if (emulated) Imgproc.cvtColor(mRgba, mRgba, Imgproc.COLOR_BGRA2RGBA)
+        if (emulated) {
+            Imgproc.cvtColor(mRgba, mRgba, Imgproc.COLOR_BGRA2RGBA)
+            Core.flip(mRgb, mRgb, 1) // Also, flip image when using front camera
+        }
 
         // Strip alpha channel and process frame.
         Imgproc.cvtColor(mRgba, mRgb, Imgproc.COLOR_RGBA2RGB)
