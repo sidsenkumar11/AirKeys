@@ -21,40 +21,42 @@ object FrameHandler {
 
     // One-time vars needed for histograms
     private lateinit var histogram: Mat
+    private lateinit var oldHistogram: Mat
     private lateinit var disc: Mat
     private lateinit var hand_rect_row_nw: List<Int>
     private lateinit var hand_rect_col_nw: List<Int>
     private lateinit var hand_rect_row_se: List<Int>
     private lateinit var hand_rect_col_se: List<Int>
+    private lateinit var oldContour: MatOfPoint2f
 
     // Variables and constants
     private var emulated: Boolean = true
-    var histCreated: Boolean = false
+    var histCreated: Boolean      = false
     var shouldCreateHist: Boolean = false
     private const val numRects = 9
     private const val TAG = "----------------------- OUR LOG"
 
     // Finger-tracking
-    val traverse_point = LinkedList<Point>()
+    private val traverse_point = LinkedList<Point>()
 
     /**
      * Initialize the matrices just once to save memory.
      */
     fun init(emulated: Boolean) {
-        histogram = Mat()
-        mHsv = Mat()
-        mFiltered = Mat()
-        mThreshed = Mat()
+        // Histogram generation and filtering
+        histogram   = Mat()
+        mHsv        = Mat()
+        mFiltered   = Mat()
+        mThreshed   = Mat()
         mThreshed3D = Mat()
-
-        // Create a structuring element for morphological operations. We want a disk-like image.
         disc = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, Size(31.0, 31.0))
         this.emulated = emulated
 
         // Fingertip Detection
-        hull = MatOfInt()
-        defects = MatOfInt4()
-        mGrayHand = Mat()
+        oldContour  = MatOfPoint2f()
+        hull        = MatOfInt()
+        defects     = MatOfInt4()
+        mGrayHand   = Mat()
         mGrayThresh = Mat()
     }
 
@@ -64,13 +66,6 @@ object FrameHandler {
      */
     fun process(input: Mat) {
         this.mRgb = input
-
-        // Rotate 90 degrees if on phone
-        if (!emulated) {
-            Core.transpose(mRgb, mRgb)
-            Imgproc.resize(mRgb, mRgb, mRgb.size(), 0.0, 0.0, 0)
-            Core.flip(mRgb, mRgb, Core.ROTATE_90_COUNTERCLOCKWISE)
-        }
 
         // Create the histogram if the screen was tapped
         if (shouldCreateHist) {
@@ -84,7 +79,7 @@ object FrameHandler {
         if (!histCreated) {
             drawRects()
         } else {
-            getFingerTip()
+            captureFingerTip()
             drawCircles()
         }
     }
@@ -108,7 +103,7 @@ object FrameHandler {
         }
 
         // Compute the histogram (using only Hue and Saturation) and normalize values to be between 0 and 255.
-        Imgproc.calcHist(histSrcList, MatOfInt(0, 1), Mat(), histogram, MatOfInt(180, 256),
+        Imgproc.calcHist(histSrcList, MatOfInt(0, 1), Mat(), histogram, MatOfInt(30, 32),
                          MatOfFloat(0.toFloat(), 180.toFloat(), 0.toFloat(), 256.toFloat()))
         Core.normalize(histogram, histogram, 0.0, 255.0, Core.NORM_MINMAX)
 
@@ -119,61 +114,74 @@ object FrameHandler {
 
     /**
      * Mask the current frame with our histogram to filter everything but the hand.
+     * Returns the max contour.
      */
-    private fun applyHistMask() {
-        // 1. Convert RGB to HSV (hue, saturation, value).
-        // Done because RGB contains information about brightness, and we don't want that.
+    private fun applyHistMask(): MatOfPoint? {
+        // 1. Convert RGB to HSV.
         Imgproc.cvtColor(mRgb, mHsv, Imgproc.COLOR_RGB2HSV)
+
+        // 2. Reduce some noise
         Imgproc.GaussianBlur(mHsv, mHsv, Size(5.0, 5.0),0.0)
 
-        // 2. Calculates the back projection of the hand-histogram.
-        // Range of values for Hue: 0-179, Value: 0-255.
+        // 3. Calculates the back projection of the hand-histogram.
+        // Range of values for Hue: 0-179, Saturation: 0-255.
         Imgproc.calcBackProject(arrayListOf(mHsv), MatOfInt(0, 1), histogram, mFiltered,
                                 MatOfFloat(0.toFloat(), 180.toFloat(), 0.toFloat(), 256.toFloat()), 1.toDouble())
 
-        // 3. Smooth the filtered image
-        // a) Convolve the image with the structuring element
+        // 4. Smooth the filtered image
+        // a) Convolve the image using a disc to blur more.
         Imgproc.filter2D(mFiltered, mFiltered, -1, disc)
 
-        // b) Applies fixed-level threshold to each array element. We'll be converting it to a binary image.
-        Imgproc.threshold(mFiltered, mThreshed, 45.0, 255.0, Imgproc.THRESH_BINARY)
+        // b) Applies fixed-level threshold to each array element to convert it to a binary image.
+        Imgproc.threshold(mFiltered, mThreshed, 90.0, 255.0, Imgproc.THRESH_BINARY)
 
-        // c) Merges thresh matrices to make 3 channels, since mRgba is a 3-channel matrix.
+        // c) Merges thresh matrices to make 3 channels, since mRgb is a 3-channel matrix.
         Core.merge(arrayListOf(mThreshed, mThreshed, mThreshed), mThreshed3D)
 
-        // 4. In the original image, filter out all pixels that aren't above our threshold.
+        // 5. In the original image, filter out all pixels that aren't above our threshold.
         Core.bitwise_and(mRgb, mThreshed3D, mRgb)
+
+        // 6. Filter out smaller contours
+        val maxContour = maxContour(contours()) ?: return null
+        val justContour = Mat(mRgb.rows(), mRgb.cols(), mRgb.type())
+        Imgproc.drawContours(justContour, arrayListOf(maxContour), 0, Scalar(255.0, 255.0, 255.0), Imgproc.FILLED)
+        Core.bitwise_and(mRgb, justContour, mRgb)
+        return maxContour
     }
 
     /**
      * Get location of finger tip and draw a circle there.
      * Assumes hand histogram has already been created.
      */
-    private fun getFingerTip() {
+    private fun captureFingerTip() {
 
         // 1. Mask away everything but the hand.
-        applyHistMask()
+        val maxContour = applyHistMask()
 
-        // 2. Get the max area contour (assumed to be the hand) and calculate its centroid.
-        val contours = contours()
-        if (contours.isEmpty()) {
-            // No hand detected on screen!
-            if (traverse_point.isNotEmpty()) traverse_point.removeFirst()
+        // If no hand detected, return.
+        if (maxContour == null) {
+            if (traverse_point.isNotEmpty())traverse_point.removeFirst()
             return
         }
-        val maxContour = maxContour(contours)
+
+        // 2. Calculate hand's centroid.
         val handCentroid = centroid(maxContour)
         if (handCentroid == null)  {
             if (traverse_point.isNotEmpty()) traverse_point.removeFirst()
             return
         }
 
+        // 3. Verify the centroid makes sense. If it doesn't, don't assume we have a fingertip.
+//        if (Imgproc.pointPolygonTest(oldContour, handCentroid, false) <= 0)
+//            return
+//        maxContour.convertTo(oldContour, CvType.CV_32F)
+
         // 3. Draw a circle at the centroid.
         Imgproc.circle(mRgb, handCentroid, 5, Scalar(255.0, 0.0, 255.0), -1)
 
         // 4. Compute convex hull of hand and get convexity defects (space between hull and actual contour).
-        Imgproc.convexHull(maxContour, hull)
-        Imgproc.convexityDefects(maxContour, hull, defects)
+//        Imgproc.convexHull(maxContour, hull)
+//        Imgproc.convexityDefects(maxContour, hull, defects)
 
         // 5. Compute furthest point from a defect to the centroid. This point is assumed to be the finger tip.
         val fingerPoint = furthestPoint(defects, maxContour, handCentroid)
@@ -211,18 +219,8 @@ object FrameHandler {
     /**
      * Given a list of contours, returns the contour with the greatest area.
      */
-    private fun maxContour(contour_list: List<MatOfPoint>): MatOfPoint {
-        var maxIndex = 0
-        var maxArea = 0.0
-        for (i in 0 until contour_list.size-1) {
-            val cnt = contour_list[i]
-            val contourArea = Imgproc.contourArea(cnt)
-            if (contourArea > maxArea) {
-                maxArea = contourArea
-                maxIndex = i
-            }
-        }
-        return contour_list[maxIndex]
+    private fun maxContour(contours: List<MatOfPoint>): MatOfPoint? {
+        return contours.maxBy { Imgproc.contourArea(it) }
     }
 
     /**
@@ -243,34 +241,37 @@ object FrameHandler {
      * This point is assumed to be the location of a finger-tip.
      */
     private fun furthestPoint(defects: MatOfInt4, contour: MatOfPoint, centroid: Point): Point? {
-//        // Min Row
-//        var maxRow = 0
-//        var maxPointValue = contour.get(0, 0)[1]
-//        for (i in 0 until contour.rows()) {
-//            val rowPoint = contour.get(i, 0)[1]
-//            if (rowPoint < maxPointValue) {
-//                maxPointValue = rowPoint
-//                maxRow = i
-//            }
-//        }
-//        val maxPoint = contour.get(maxRow, 0)
-//        return Point(maxPoint[0], maxPoint[1])
+        // Use max distance between defects and hull
 
-        // Max Distance
-        val cenRow = centroid.y
-        val cenCol = centroid.x
-        var maxPoint = contour.get(0, 0)
-        var maxDist = 0.0
+
+        // Min Row
+        var maxRow = 0
+        var maxPointValue = contour.get(0, 0)[1]
         for (i in 0 until contour.rows()) {
-            val conRow = contour.get(i, 0)[1]
-            val conCol = contour.get(i, 0)[0]
-            val dist = Math.sqrt(Math.pow(cenRow - conRow, 2.0) + Math.pow(cenCol - conCol, 2.0))
-            if (dist > maxDist) {
-                maxDist = dist
-                maxPoint = contour.get(i, 0)
+            val rowPoint = contour.get(i, 0)[1]
+            if (rowPoint < maxPointValue) {
+                maxPointValue = rowPoint
+                maxRow = i
             }
         }
+        val maxPoint = contour.get(maxRow, 0)
         return Point(maxPoint[0], maxPoint[1])
+
+//        // Max Distance
+//        val cenRow = centroid.y
+//        val cenCol = centroid.x
+//        var maxPoint = contour.get(0, 0)
+//        var maxDist = 0.0
+//        for (i in 0 until contour.rows()) {
+//            val conRow = contour.get(i, 0)[1]
+//            val conCol = contour.get(i, 0)[0]
+//            val dist = Math.sqrt(Math.pow(cenRow - conRow, 2.0) + Math.pow(cenCol - conCol, 2.0))
+//            if (dist > maxDist) {
+//                maxDist = dist
+//                maxPoint = contour.get(i, 0)
+//            }
+//        }
+//        return Point(maxPoint[0], maxPoint[1])
     }
 
     /**
@@ -306,15 +307,6 @@ object FrameHandler {
         for (i in 0 until traverse_point.size) {
             Imgproc.circle(mRgb, traverse_point[i], 5 - (5 * i * 3) / 100, Scalar(0.0, 255.0, 255.0), -1)
         }
-    }
-
-    /**
-     * Resizes the frame dimensions by some percentage.
-     */
-    fun rescaleFrame(wpercent: Int = 130, hpercent: Int = 130) {
-        val width = mRgb.width() * wpercent / 100.0
-        val height = mRgb.height() * hpercent / 100.0
-        Imgproc.resize(mRgb, mRgb, Size(width, height), 0.0, 0.0, Imgproc.INTER_AREA)
     }
 }
 

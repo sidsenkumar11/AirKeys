@@ -28,10 +28,12 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
      * Set camera view and load OpenCV libraries.
      */
     private fun init() {
+        // Check if we're in an emulator
+        emulated = Build.FINGERPRINT.contains("generic")
+
         // Show camera and set its listener
         setContentView(R.layout.show_camera)
         mOpenCvCameraView = findViewById(R.id.camera_activity_view)
-//        mOpenCvCameraView.setCameraIndex(1)
         mOpenCvCameraView.visibility = SurfaceView.VISIBLE
         mOpenCvCameraView.setCvCameraViewListener(this)
 
@@ -51,14 +53,9 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
         // Keep screen on; don't automatically lock screen.
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-        // Check if we're in an emulator
-        if (Build.FINGERPRINT.contains("generic")) {
-            emulated = true
-        }
-
         // Initialize matrices
         FrameHandler.init(emulated)
-        mRgb = Mat()
+        this.mRgb = Mat()
     }
 
     /**
@@ -132,18 +129,19 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
     override fun onCameraViewStarted(width: Int, height: Int) {}
     override fun onCameraViewStopped() {}
     override fun onCameraFrame(inputFrame: CameraBridgeViewBase.CvCameraViewFrame): Mat {
-        val mRgba = inputFrame.rgba()
+        // Get frame and strip alpha channel.
+        Imgproc.cvtColor(inputFrame.rgba(), mRgb, Imgproc.COLOR_RGBA2RGB)
+
         /*
             OpenCV stupidity - https://github.com/opencv/opencv/issues/11118
             For some emulators, frame.rgba() will actually return bgra so the colors will be blueish.
+            We'll make sure it's always RGB before continuing.
         */
         if (emulated) {
-            Imgproc.cvtColor(mRgba, mRgba, Imgproc.COLOR_BGRA2RGBA)
-            Core.flip(mRgb, mRgb, 1) // Also, flip image when using front camera
+            Imgproc.cvtColor(mRgb, mRgb, Imgproc.COLOR_BGR2RGB)
+            // Flip image for display if using a front-facing camera (eg. laptop)
+            Core.flip(mRgb, mRgb, 1)
         }
-
-        // Strip alpha channel and process frame.
-        Imgproc.cvtColor(mRgba, mRgb, Imgproc.COLOR_RGBA2RGB)
         FrameHandler.process(mRgb)
         return mRgb
     }
