@@ -34,12 +34,14 @@ object FrameHandler {
     var histCreated      = false
     var shouldCreateHist = false
     private const val numRects = 9
-    private const val maxCaptures = 60
+    private const val maxCaptures = 70
     private const val TAG = "----------------------- OUR LOG"
 
     // Finger-tracking
     private val traverse_point = LinkedList<Point>()
     private var freeze = false
+    private var freezeCount = 0
+    private const val maxFreezeCount = 50
 
     /**
      * Initialize the matrices just once to save memory.
@@ -87,6 +89,17 @@ object FrameHandler {
 
         if (!freeze && stationary()) {
             freeze = true
+        } else if (freeze) {
+            freezeCount += 1
+            if (freezeCount > maxFreezeCount) {
+                freezeCount = 0
+                freeze = false
+                traverse_point.clear()
+            } else {
+                // Indicate to user that they're free to move their finger to a new start position
+                Imgproc.rectangle(
+                    mRgb, Point(0.0, 0.0), Point(30.0, 30.0), Scalar(0.0, 255.0, 0.0), -1)
+            }
         }
     }
 
