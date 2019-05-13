@@ -94,6 +94,7 @@ object FrameHandler {
             if (freezeCount > maxFreezeCount) {
                 freezeCount = 0
                 freeze = false
+                // Save the figure somewhere
                 traverse_point.clear()
             } else {
                 // Indicate to user that they're free to move their finger to a new start position
@@ -101,6 +102,11 @@ object FrameHandler {
                     mRgb, Point(0.0, 0.0), Point(30.0, 30.0), Scalar(0.0, 255.0, 0.0), -1)
             }
         }
+    }
+
+    // For later use; When the fingertip points are needed to generate the right image which will be fed into the model
+    fun getTraversePoints(): LinkedList<Point> {
+        return traverse_point
     }
 
     /**
