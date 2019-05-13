@@ -36,6 +36,7 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
         mOpenCvCameraView = findViewById(R.id.camera_activity_view)
         mOpenCvCameraView.visibility = SurfaceView.VISIBLE
         mOpenCvCameraView.setCvCameraViewListener(this)
+        mOpenCvCameraView.setMaxFrameSize(640, 480)
 
         // Load OpenCV libraries
         // initDebug() - Loads and initializes OpenCV library from within current application package.
