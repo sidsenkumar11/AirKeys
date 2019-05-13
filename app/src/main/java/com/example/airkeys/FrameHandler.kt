@@ -30,14 +30,16 @@ object FrameHandler {
     private lateinit var oldContour: MatOfPoint2f
 
     // Variables and constants
-    private var emulated: Boolean = true
-    var histCreated: Boolean      = false
-    var shouldCreateHist: Boolean = false
+    private var emulated = true
+    var histCreated      = false
+    var shouldCreateHist = false
     private const val numRects = 9
+    private const val maxCaptures = 60
     private const val TAG = "----------------------- OUR LOG"
 
     // Finger-tracking
     private val traverse_point = LinkedList<Point>()
+    private var freeze = false
 
     /**
      * Initialize the matrices just once to save memory.
@@ -82,6 +84,39 @@ object FrameHandler {
             captureFingerTip()
             drawCircles()
         }
+
+        if (!freeze && stationary()) {
+            freeze = true
+        }
+    }
+
+    /**
+     * Determines if the last 1/3 of points appear to be stationary,
+     * indicating that the user is finished drawing a character.
+     */
+    private fun stationary(): Boolean {
+        if (traverse_point.size < maxCaptures) return false
+
+        val lastFactor: Double = 7.0 / 8
+        val startIndex = (maxCaptures * lastFactor).toInt()
+        var maxX = traverse_point[startIndex].x
+        var minX = traverse_point[startIndex].x
+        var maxY = traverse_point[startIndex].y
+        var minY = traverse_point[startIndex].y
+
+        for (i in startIndex until maxCaptures) {
+            val x = traverse_point[i].x
+            val y = traverse_point[i].y
+            if (x > maxX) maxX = x
+            if (x < minX) minX = x
+            if (y > maxY) maxY = y
+            if (y < minY) minY = y
+        }
+
+        val epsilon = 14
+        if (maxX - minX > epsilon) return false
+        if (maxY - minY > epsilon) return false
+        return true
     }
 
     /**
@@ -154,9 +189,10 @@ object FrameHandler {
      * Assumes hand histogram has already been created.
      */
     private fun captureFingerTip() {
-
         // 1. Mask away everything but the hand.
         val maxContour = applyHistMask()
+
+        if (freeze) return
 
         // If no hand detected, return.
         if (maxContour == null) {
@@ -185,12 +221,13 @@ object FrameHandler {
 
         // 5. Compute furthest point from a defect to the centroid. This point is assumed to be the finger tip.
         val fingerPoint = furthestPoint(defects, maxContour, handCentroid)
+//        Log.e(TAG, fingerPoint.toString())
         if (fingerPoint != null) {
             // Create a circle at the finger tip.
             Imgproc.circle(mRgb, fingerPoint, 5, Scalar(0.0, 0.0, 255.0), -1)
 
             // Add location to list of recently seen fingertip positions.
-            if (traverse_point.size < 20) {
+            if (traverse_point.size < maxCaptures) {
                 traverse_point.add(fingerPoint)
             } else {
                 traverse_point.removeFirst()
@@ -242,7 +279,6 @@ object FrameHandler {
      */
     private fun furthestPoint(defects: MatOfInt4, contour: MatOfPoint, centroid: Point): Point? {
         // Use max distance between defects and hull
-
 
         // Min Row
         var maxRow = 0
@@ -305,7 +341,7 @@ object FrameHandler {
      */
     private fun drawCircles() {
         for (i in 0 until traverse_point.size) {
-            Imgproc.circle(mRgb, traverse_point[i], 5 - (5 * i * 3) / 100, Scalar(0.0, 255.0, 255.0), -1)
+            Imgproc.circle(mRgb, traverse_point[i], 5, Scalar(0.0, 255.0, 255.0), -1)
         }
     }
 }
