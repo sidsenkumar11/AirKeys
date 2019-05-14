@@ -38,7 +38,7 @@ object FrameHandler {
     private const val TAG = "----------------------- OUR LOG"
 
     // Finger-tracking
-    private val traverse_point = LinkedList<Point>()
+    private val drawn_points = LinkedList<Point>()
     private var freeze = false
     private var freezeCount = 0
     private const val maxFreezeCount = 50
@@ -89,15 +89,13 @@ object FrameHandler {
 
         if (!freeze && stationary()) {
             freeze = true
+            LetterClassifier.classify(drawn_points, mRgb.rows(), mRgb.cols())
         } else if (freeze) {
             freezeCount += 1
             if (freezeCount > maxFreezeCount) {
                 freezeCount = 0
                 freeze = false
-                // Save the figure somewhere
-                Log.e("NUMBER OF POINTS", Integer.toString(traverse_point.size))
-
-                traverse_point.clear()
+                drawn_points.clear()
             } else {
                 // Indicate to user that they're free to move their finger to a new start position
                 Imgproc.rectangle(
@@ -106,28 +104,23 @@ object FrameHandler {
         }
     }
 
-    // For later use; When the fingertip points are needed to generate the right image which will be fed into the model
-    fun getTraversePoints(): LinkedList<Point> {
-        return traverse_point
-    }
-
     /**
      * Determines if the last 1/3 of points appear to be stationary,
      * indicating that the user is finished drawing a character.
      */
     private fun stationary(): Boolean {
-        if (traverse_point.size < maxCaptures) return false
+        if (drawn_points.size < maxCaptures) return false
 
         val lastFactor: Double = 7.0 / 8
         val startIndex = (maxCaptures * lastFactor).toInt()
-        var maxX = traverse_point[startIndex].x
-        var minX = traverse_point[startIndex].x
-        var maxY = traverse_point[startIndex].y
-        var minY = traverse_point[startIndex].y
+        var maxX = drawn_points[startIndex].x
+        var minX = drawn_points[startIndex].x
+        var maxY = drawn_points[startIndex].y
+        var minY = drawn_points[startIndex].y
 
         for (i in startIndex until maxCaptures) {
-            val x = traverse_point[i].x
-            val y = traverse_point[i].y
+            val x = drawn_points[i].x
+            val y = drawn_points[i].y
             if (x > maxX) maxX = x
             if (x < minX) minX = x
             if (y > maxY) maxY = y
@@ -160,7 +153,7 @@ object FrameHandler {
 
         // Compute the histogram (using only Hue and Saturation) and normalize values to be between 0 and 255.
         Imgproc.calcHist(histSrcList, MatOfInt(0, 1), Mat(), histogram, MatOfInt(30, 32),
-                         MatOfFloat(0.toFloat(), 180.toFloat(), 0.toFloat(), 256.toFloat()))
+            MatOfFloat(0.toFloat(), 180.toFloat(), 0.toFloat(), 256.toFloat()))
         Core.normalize(histogram, histogram, 0.0, 255.0, Core.NORM_MINMAX)
 
         // Reclaim memory
@@ -182,7 +175,7 @@ object FrameHandler {
         // 3. Calculates the back projection of the hand-histogram.
         // Range of values for Hue: 0-179, Saturation: 0-255.
         Imgproc.calcBackProject(arrayListOf(mHsv), MatOfInt(0, 1), histogram, mFiltered,
-                                MatOfFloat(0.toFloat(), 180.toFloat(), 0.toFloat(), 256.toFloat()), 1.toDouble())
+            MatOfFloat(0.toFloat(), 180.toFloat(), 0.toFloat(), 256.toFloat()), 1.toDouble())
 
         // 4. Smooth the filtered image
         // a) Convolve the image using a disc to blur more.
@@ -217,14 +210,14 @@ object FrameHandler {
 
         // If no hand detected, return.
         if (maxContour == null) {
-            if (traverse_point.isNotEmpty())traverse_point.removeFirst()
+            if (drawn_points.isNotEmpty())drawn_points.removeFirst()
             return
         }
 
         // 2. Calculate hand's centroid.
         val handCentroid = centroid(maxContour)
         if (handCentroid == null)  {
-            if (traverse_point.isNotEmpty()) traverse_point.removeFirst()
+            if (drawn_points.isNotEmpty()) drawn_points.removeFirst()
             return
         }
 
@@ -242,17 +235,16 @@ object FrameHandler {
 
         // 5. Compute furthest point from a defect to the centroid. This point is assumed to be the finger tip.
         val fingerPoint = furthestPoint(defects, maxContour, handCentroid)
-//        Log.e(TAG, fingerPoint.toString())
         if (fingerPoint != null) {
             // Create a circle at the finger tip.
             Imgproc.circle(mRgb, fingerPoint, 5, Scalar(0.0, 0.0, 255.0), -1)
 
             // Add location to list of recently seen fingertip positions.
-            if (traverse_point.size < maxCaptures) {
-                traverse_point.add(fingerPoint)
+            if (drawn_points.size < maxCaptures) {
+                drawn_points.add(fingerPoint)
             } else {
-                traverse_point.removeFirst()
-                traverse_point.add(fingerPoint)
+                drawn_points.removeFirst()
+                drawn_points.add(fingerPoint)
             }
         }
     }
@@ -369,8 +361,8 @@ object FrameHandler {
      * The circles decrease in size to indicate they were seen longer ago.
      */
     private fun drawCircles() {
-        for (i in 0 until traverse_point.size) {
-            Imgproc.circle(mRgb, traverse_point[i], 5, Scalar(0.0, 255.0, 255.0), -1)
+        for (i in 0 until drawn_points.size) {
+            Imgproc.circle(mRgb, drawn_points[i], 5, Scalar(0.0, 255.0, 255.0), -1)
         }
     }
 }
