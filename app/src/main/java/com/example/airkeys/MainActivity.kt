@@ -15,6 +15,10 @@ import android.widget.Toast
 import org.opencv.android.*
 import org.opencv.core.*
 import org.opencv.imgproc.Imgproc
+import java.io.BufferedWriter
+import java.io.OutputStreamWriter
+import java.net.Socket
+
 
 class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
 
@@ -129,6 +133,7 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
 
     override fun onCameraViewStarted(width: Int, height: Int) {}
     override fun onCameraViewStopped() {}
+
     override fun onCameraFrame(inputFrame: CameraBridgeViewBase.CvCameraViewFrame): Mat {
         // Get frame and strip alpha channel.
         Imgproc.cvtColor(inputFrame.rgba(), mRgb, Imgproc.COLOR_RGBA2RGB)
