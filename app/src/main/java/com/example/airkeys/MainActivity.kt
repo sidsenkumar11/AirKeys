@@ -15,9 +15,6 @@ import android.widget.Toast
 import org.opencv.android.*
 import org.opencv.core.*
 import org.opencv.imgproc.Imgproc
-import java.io.BufferedWriter
-import java.io.OutputStreamWriter
-import java.net.Socket
 
 
 class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
