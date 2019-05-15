@@ -42,16 +42,16 @@ def imageprepare(argv):
 
 
 def model_image(image):
-  x = [imageprepare(image)]
-  newArr=[[0 for d in range(28)] for y in range(28)]
-  k = 0
-  for i in range(28):
-    for j in range(28):
-      newArr[i][j]=x[0][k]
-      k=k+1
-        
-  newArr = np.array(newArr)
-  return newArr
+    x = [imageprepare(image)]
+    newArr=[[0 for d in range(28)] for y in range(28)]
+    k = 0
+    for i in range(28):
+        for j in range(28):
+            newArr[i][j]=x[0][k]
+            k=k+1
+          
+    newArr = np.array(newArr)
+    return newArr
 
 def preload_model(name):
   model = load_model(name)
@@ -60,9 +60,9 @@ def preload_model(name):
 def resolve_prediction(prediction):
   mappping = {}
   for i in xrange(1,27):
-    mapping[i] = chr(64+i)
+      mapping[i] = chr(64+i)
   for i in xrange(27, 36):
-    mapping[i] = char(48 + i - 26)
+      mapping[i] = char(48 + i - 26)
   mapping[36] = '0'
   return mapping[prediction] 
 
@@ -74,8 +74,8 @@ def predict_from_model(image):
 
 def convert_image(image):
   if(len(sys.argv) == 2):
-    test_image = model_image(image)
-    return test_image
+      test_image = model_image(image)
+      return test_image
   else:
-    print('Insuffient input.')
+      print('Insuffient input.')
   
