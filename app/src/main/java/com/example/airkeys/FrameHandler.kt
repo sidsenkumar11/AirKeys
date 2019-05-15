@@ -331,11 +331,19 @@ object FrameHandler {
         val rows = mRgb.rows()
         val cols = mRgb.cols()
 
+        val x_margin = 45
+        val y_margin = 0
         // Generate lists of points for rectangles
-        hand_rect_row_nw = arrayListOf(6 * rows / 20, 6 * rows / 20, 6 * rows / 20, 8 * rows / 20, 8 * rows / 20, 8 * rows / 20, 10 * rows / 20,
-            10 * rows / 20, 10 * rows / 20)
-        hand_rect_col_nw = arrayListOf(9 * cols / 20, 10 * cols / 20, 11 * cols / 20, 9 * cols / 20, 10 * cols / 20, 11 * cols / 20, 9 * cols / 20,
-            10 * cols / 20, 11 * cols / 20)
+        hand_rect_row_nw = arrayListOf(
+            x_margin + 6 * rows / 20, x_margin + 6 * rows / 20, x_margin + 6 * rows / 20,
+            x_margin + 8 * rows / 20, x_margin + 8 * rows / 20, x_margin + 8 * rows / 20,
+            x_margin + 10 * rows / 20, x_margin + 10 * rows / 20, x_margin + 10 * rows / 20
+        )
+        hand_rect_col_nw = arrayListOf(
+            y_margin + 9 * cols / 20, y_margin + 10 * cols / 20, y_margin + 11 * cols / 20,
+            y_margin + 9 * cols / 20, y_margin + 10 * cols / 20, y_margin + 11 * cols / 20,
+            y_margin + 9 * cols / 20, y_margin + 10 * cols / 20, y_margin + 11 * cols / 20
+        )
 
         hand_rect_row_se = hand_rect_row_nw.map {it + 10}
         hand_rect_col_se= hand_rect_col_nw.map {it + 10}
