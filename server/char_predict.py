@@ -66,8 +66,7 @@ def resolve_prediction(prediction):
         translated = chr(97+prediction-36)
     return translated
 
-
-def predict_from_model(image):
+def from_model(image):
     test_image = model_image(image)
     pred = model.predict(test_image.reshape(1, 28, 28, 1))
     return resolve_prediction(pred.argmax())

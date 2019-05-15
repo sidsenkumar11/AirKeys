@@ -5,6 +5,7 @@ import json
 import socket
 import sys
 import numpy as np
+import char_predict
 
 HOST, PORT = '', 5000
 id_val = 0
@@ -32,9 +33,8 @@ def handle_data(data):
     img = ImageOps.invert(img.crop(img.getbbox()))
     img.save("images/pic{}.png".format(id_val), "PNG")
 
-    # ...
     # Return character after running image in neural network
-    return "This is where your letter goes!"
+    return char_predict.from_model("images/pic{}.png".format(id_val))
 
 def main():
     # Bind socket to local host and port
