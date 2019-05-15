@@ -32,6 +32,10 @@ def handle_data(data):
     img = ImageOps.invert(img.crop(img.getbbox()))
     img.save("images/pic{}.png".format(id_val), "PNG")
 
+    # ...
+    # Return character after running image in neural network
+    return "This is where your letter goes!"
+
 def main():
     # Bind socket to local host and port
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -48,7 +52,9 @@ def main():
         conn, addr = s.accept()
         print('Connected with ' + addr[0] + ':' + str(addr[1]))
         data = conn.recv(4096)
-        handle_data(data)
+        letter = handle_data(data)
+        conn.sendall(letter)
+        conn.close()
 
     s.close()
 

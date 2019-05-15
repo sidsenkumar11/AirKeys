@@ -1,6 +1,5 @@
 package com.example.airkeys
 
-import android.util.Log
 import org.opencv.core.*
 import org.opencv.imgproc.Imgproc
 import java.util.*
@@ -67,8 +66,9 @@ object FrameHandler {
     /**
      * On receiving a frame, draw rectangles to help a user create a histogram of their hand.
      * After it's created, draw circles tracking their finger tips.
+     * Return the character from the server if frozen.
      */
-    fun process(input: Mat) {
+    fun process(input: Mat): String? {
         this.mRgb = input
 
         // Create the histogram if the screen was tapped
@@ -89,7 +89,7 @@ object FrameHandler {
 
         if (!freeze && stationary()) {
             freeze = true
-            LetterClassifier.classify(drawn_points, mRgb.rows(), mRgb.cols())
+            return LetterClassifier.classify(drawn_points, mRgb.rows(), mRgb.cols())
         } else if (freeze) {
             freezeCount += 1
             if (freezeCount > maxFreezeCount) {
@@ -102,6 +102,7 @@ object FrameHandler {
                     mRgb, Point(0.0, 0.0), Point(30.0, 30.0), Scalar(0.0, 255.0, 0.0), -1)
             }
         }
+        return null
     }
 
     /**

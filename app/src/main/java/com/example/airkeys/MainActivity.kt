@@ -3,8 +3,7 @@ package com.example.airkeys
 import android.Manifest
 import android.app.Activity
 import android.content.pm.PackageManager
-import android.os.Build
-import android.os.Bundle
+import android.os.*
 import android.support.v4.app.ActivityCompat
 import android.support.v4.content.ContextCompat
 import android.util.Log
@@ -15,7 +14,6 @@ import android.widget.Toast
 import org.opencv.android.*
 import org.opencv.core.*
 import org.opencv.imgproc.Imgproc
-
 
 class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
 
@@ -145,7 +143,14 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
             // Flip image for display if using a front-facing camera (eg. laptop)
             Core.flip(mRgb, mRgb, 1)
         }
-        FrameHandler.process(mRgb)
+
+        // Process frame and toast character if found.
+        val character = FrameHandler.process(mRgb)
+        if (character != null) {
+            runOnUiThread {
+                Toast.makeText(this, character, Toast.LENGTH_LONG).show()
+            }
+        }
         return mRgb
     }
 }
