@@ -58,13 +58,13 @@ def preload_model(name):
     return model
 
 def resolve_prediction(prediction):
-    mappping = {}
-    for i in xrange(1,27):
-        mapping[i] = chr(64+i)
-    for i in xrange(27, 36):
-        mapping[i] = char(48 + i - 26)
-    mapping[36] = '0'
-    return mapping[prediction] 
+    if (prediction <= 9):
+        translated = chr(48+prediction)
+    elif (prediction <= 35):
+        translated = chr(65+prediction-10)
+    elif (prediction <= 62):
+        translated = chr(97+prediction-36)
+    return translated
 
 def predict_from_model(image):
     model = preload_model('./emnist_letter_digits.h5')
