@@ -48,6 +48,7 @@ def main():
 
     # Start listening on socket and waiting for connections
     s.listen(10)
+    print("Everything loaded! Waiting for connections...")
     while 1:
         conn, addr = s.accept()
         print('Connected with ' + addr[0] + ':' + str(addr[1]))
