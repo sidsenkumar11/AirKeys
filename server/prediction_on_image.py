@@ -54,28 +54,28 @@ def model_image(image):
     return newArr
 
 def preload_model(name):
-  model = load_model(name)
-  return model
+    model = load_model(name)
+    return model
 
 def resolve_prediction(prediction):
-  mappping = {}
-  for i in xrange(1,27):
-      mapping[i] = chr(64+i)
-  for i in xrange(27, 36):
-      mapping[i] = char(48 + i - 26)
-  mapping[36] = '0'
-  return mapping[prediction] 
+    mappping = {}
+    for i in xrange(1,27):
+        mapping[i] = chr(64+i)
+    for i in xrange(27, 36):
+        mapping[i] = char(48 + i - 26)
+    mapping[36] = '0'
+    return mapping[prediction] 
 
 def predict_from_model(image):
-  model = preload_model('./emnist_letter_digits.h5')
-  test_image = convert_image(image)
-  pred = model.predict(test_image.reshape(1, 28, 28, 1))
-  return resolve_prediction(pred.argmax())
+    model = preload_model('./emnist_letter_digits.h5')
+    test_image = convert_image(image)
+    pred = model.predict(test_image.reshape(1, 28, 28, 1))
+    return resolve_prediction(pred.argmax())
 
 def convert_image(image):
-  if(len(sys.argv) == 2):
-      test_image = model_image(image)
-      return test_image
-  else:
-      print('Insuffient input.')
-  
+    if(len(sys.argv) == 2):
+        test_image = model_image(image)
+        return test_image
+    else:
+        print('Insuffient input.')
+    
