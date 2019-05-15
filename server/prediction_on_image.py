@@ -2,6 +2,14 @@ from keras.models import load_model
 from PIL import Image, ImageFilter
 import numpy as np
 
+model = load_model('./emnist_letter_digits.h5')
+mapping = {}
+for i in xrange(1,27):
+    mapping[i] = chr(64+i)
+for i in xrange(27, 36):
+    mapping[i] = chr(48 + i - 26)
+mapping[36] = '0'
+
 def imageprepare(argv):
     """
     This function returns the pixel values.
@@ -40,7 +48,9 @@ def imageprepare(argv):
     # print(tva)
     return tva
 
-
+"""
+    Calls imageprepare to prepare the image and scales to 28x28
+"""
 def model_image(image):
     x = [imageprepare(image)]
     newArr=[[0 for d in range(28)] for y in range(28)]
@@ -49,33 +59,14 @@ def model_image(image):
         for j in range(28):
             newArr[i][j]=x[0][k]
             k=k+1
-          
+
     newArr = np.array(newArr)
     return newArr
 
-def preload_model(name):
-    model = load_model(name)
-    return model
-
 def resolve_prediction(prediction):
-    mappping = {}
-    for i in xrange(1,27):
-        mapping[i] = chr(64+i)
-    for i in xrange(27, 36):
-        mapping[i] = char(48 + i - 26)
-    mapping[36] = '0'
-    return mapping[prediction] 
+    return mapping[prediction]
 
 def predict_from_model(image):
-    model = preload_model('./emnist_letter_digits.h5')
-    test_image = convert_image(image)
+    test_image = model_image(image)
     pred = model.predict(test_image.reshape(1, 28, 28, 1))
     return resolve_prediction(pred.argmax())
-
-def convert_image(image):
-    if(len(sys.argv) == 2):
-        test_image = model_image(image)
-        return test_image
-    else:
-        print('Insuffient input.')
-    
