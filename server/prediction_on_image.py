@@ -66,7 +66,9 @@ def resolve_prediction(prediction):
   mapping[36] = '0'
   return mapping[prediction] 
 
-def predict_from_model(test_image):
+def predict_from_model(image):
+  model = preload_model('./emnist_letter_digits.h5')
+  test_image = convert_image(image)
   pred = model.predict(test_image.reshape(1, 28, 28, 1))
   return resolve_prediction(pred.argmax())
 
