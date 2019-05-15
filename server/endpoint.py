@@ -11,6 +11,7 @@ HOST, PORT = '', 5000
 id_val = 0
 
 def handle_data(data):
+    global id_val
     # Get points
     json_obj = json.loads(data)
     points_list = json_obj['points']
