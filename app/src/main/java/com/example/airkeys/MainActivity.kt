@@ -17,11 +17,55 @@ import org.opencv.imgproc.Imgproc
 
 class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
 
-    // This is the camera view for OpenCV to use.
     private lateinit var mOpenCvCameraView: CameraBridgeViewBase
+    private lateinit var mRgb: Mat
     private val MY_PERMISSIONS_REQUEST_CAMERA = 123
     private var emulated = false
-    private lateinit var mRgb: Mat
+
+    /**
+     * After the OpenCV libraries are initialized and loaded, OpenCV can run a function for you.
+     * We define this function such that it enables the camera.
+     */
+    private val mLoaderCallback = object : BaseLoaderCallback(this) {
+        override fun onManagerConnected(status: Int) {
+            when (status) {
+                LoaderCallbackInterface.SUCCESS -> mOpenCvCameraView.enableView()
+                else -> super.onManagerConnected(status)
+            }
+        }
+    }
+
+    /**
+     * Callback function for permissions granted/denied.
+     */
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
+        when (requestCode) {
+            MY_PERMISSIONS_REQUEST_CAMERA -> {
+                // If request is cancelled, the result arrays are empty.
+                if ((grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED)) {
+                    // Permission was granted.
+                    init()
+                } else {
+                    // Permission was denied.
+                    Toast.makeText(this, "Camera permission needed for AirKeys!", Toast.LENGTH_LONG).show()
+                    finish()
+                }
+            }
+            // Add other 'when' lines to check for other permissions this app might request.
+            else -> {}
+        }
+    }
+
+    /**
+     * Callback function for when screen is tapped.
+     * Screen tap indicates that user has aligned their hand over rectangles and wishes to create a histogram of it.
+     */
+    fun screenTapped(view: View) {
+        if (!FrameHandler.histCreated) {
+            FrameHandler.shouldCreateHist = true
+            FrameHandler.histCreated = true
+        }
+    }
 
     /**
      * Set camera view and load OpenCV libraries.
@@ -56,52 +100,6 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
         // Initialize matrices
         FrameHandler.init(emulated)
         this.mRgb = Mat()
-    }
-
-    /**
-     * After the OpenCV libraries are initialized and loaded, OpenCV can run a function for you.
-     * We define this function such that it enables the camera.
-     */
-    private val mLoaderCallback = object : BaseLoaderCallback(this) {
-        override fun onManagerConnected(status: Int) {
-            when (status) {
-                LoaderCallbackInterface.SUCCESS -> mOpenCvCameraView.enableView()
-                else -> super.onManagerConnected(status)
-            }
-        }
-    }
-
-    /**
-     * Callback function for permissions granted/denied.
-     */
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
-        when (requestCode) {
-            MY_PERMISSIONS_REQUEST_CAMERA -> {
-                // If request is cancelled, the result arrays are empty.
-                if ((grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED)) {
-                    // Permission was granted.
-                    init()
-                } else {
-                    // Permission was denied.
-                    Toast.makeText(this, "Camera permission needed for AirKeys!", Toast.LENGTH_LONG).show()
-                    finish()
-                }
-                return
-            }
-            // Add other 'when' lines to check for other permissions this app might request.
-            else -> {}
-        }
-    }
-
-    /**
-     * Callback function for when screen is tapped.
-     * Screen tap indicates that user has aligned their hand over rectangles and wishes to create a histogram of it.
-     */
-    fun screenTapped(view: View) {
-        if (!FrameHandler.histCreated) {
-            FrameHandler.shouldCreateHist = true
-            FrameHandler.histCreated = true
-        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -144,7 +142,7 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
             Core.flip(mRgb, mRgb, 1)
         }
 
-        // Process frame and toast character if found.
+        // Process frame and display character if recognized.
         val character = FrameHandler.process(mRgb)
         if (character != null) {
             runOnUiThread {
