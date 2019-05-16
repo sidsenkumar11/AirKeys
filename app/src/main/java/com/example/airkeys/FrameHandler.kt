@@ -28,7 +28,7 @@ object FrameHandler {
     private lateinit var hand_rect_col_se: List<Int>
     private lateinit var oldContour: MatOfPoint2f
 
-    // Variables and constants
+    // Flag variables and constants
     private var emulated = true
     var histCreated      = false
     var shouldCreateHist = false
@@ -65,8 +65,9 @@ object FrameHandler {
 
     /**
      * On receiving a frame, draw rectangles to help a user create a histogram of their hand.
-     * After it's created, draw circles tracking their finger tips.
-     * Return the character from the server if frozen.
+     * If it's already been created, draw circles tracking their finger tips instead.
+     * After the user indicates that they've drawn a character (by not moving their finger),
+     * send the points to a server for recognition and freeze the frame.
      */
     fun process(input: Mat): String? {
         this.mRgb = input
@@ -87,6 +88,7 @@ object FrameHandler {
             drawCircles()
         }
 
+        // If the finger doesn't appear to be moving, try classifying the current points as a character.
         if (!freeze && stationary()) {
             freeze = true
             return LetterClassifier.classify(drawn_points, mRgb.rows(), mRgb.cols())
@@ -106,7 +108,7 @@ object FrameHandler {
     }
 
     /**
-     * Determines if the last 1/3 of points appear to be stationary,
+     * Determines if the last 1/8 of points appear to be stationary,
      * indicating that the user is finished drawing a character.
      */
     private fun stationary(): Boolean {
@@ -211,7 +213,7 @@ object FrameHandler {
 
         // If no hand detected, return.
         if (maxContour == null) {
-            if (drawn_points.isNotEmpty())drawn_points.removeFirst()
+            if (drawn_points.isNotEmpty()) drawn_points.removeFirst()
             return
         }
 
@@ -237,9 +239,6 @@ object FrameHandler {
         // 5. Compute furthest point from a defect to the centroid. This point is assumed to be the finger tip.
         val fingerPoint = furthestPoint(defects, maxContour, handCentroid)
         if (fingerPoint != null) {
-            // Create a circle at the finger tip.
-            Imgproc.circle(mRgb, fingerPoint, 5, Scalar(0.0, 0.0, 255.0), -1)
-
             // Add location to list of recently seen fingertip positions.
             if (drawn_points.size < maxCaptures) {
                 drawn_points.add(fingerPoint)
