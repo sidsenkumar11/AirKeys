@@ -1,5 +1,6 @@
 package com.example.airkeys
 
+import android.util.Log
 import org.opencv.core.*
 import org.opencv.imgproc.Imgproc
 import java.util.*
@@ -108,35 +109,6 @@ object FrameHandler {
     }
 
     /**
-     * Determines if the last 1/8 of points appear to be stationary,
-     * indicating that the user is finished drawing a character.
-     */
-    private fun stationary(): Boolean {
-        if (drawn_points.size < maxCaptures) return false
-
-        val lastFactor: Double = 7.0 / 8
-        val startIndex = (maxCaptures * lastFactor).toInt()
-        var maxX = drawn_points[startIndex].x
-        var minX = drawn_points[startIndex].x
-        var maxY = drawn_points[startIndex].y
-        var minY = drawn_points[startIndex].y
-
-        for (i in startIndex until maxCaptures) {
-            val x = drawn_points[i].x
-            val y = drawn_points[i].y
-            if (x > maxX) maxX = x
-            if (x < minX) minX = x
-            if (y > maxY) maxY = y
-            if (y < minY) minY = y
-        }
-
-        val epsilon = 14
-        if (maxX - minX > epsilon) return false
-        if (maxY - minY > epsilon) return false
-        return true
-    }
-
-    /**
      * Create the hand histogram from the current frame's content.
      */
     private fun createHist() {
@@ -169,16 +141,17 @@ object FrameHandler {
      * Returns the max contour.
      */
     private fun applyHistMask(): MatOfPoint? {
+
         // 1. Convert RGB to HSV.
         Imgproc.cvtColor(mRgb, mHsv, Imgproc.COLOR_RGB2HSV)
 
-        // 2. Reduce some noise
-        Imgproc.GaussianBlur(mHsv, mHsv, Size(5.0, 5.0),0.0)
-
-        // 3. Calculates the back projection of the hand-histogram.
+        // 2. Calculates the back projection of the hand-histogram.
         // Range of values for Hue: 0-179, Saturation: 0-255.
         Imgproc.calcBackProject(arrayListOf(mHsv), MatOfInt(0, 1), histogram, mFiltered,
             MatOfFloat(0.toFloat(), 180.toFloat(), 0.toFloat(), 256.toFloat()), 1.toDouble())
+
+        // 3. Reduce some noise by blurring
+        Imgproc.GaussianBlur(mFiltered, mFiltered, Size(5.0, 5.0),0.0)
 
         // 4. Smooth the filtered image
         // a) Convolve the image using a disc to blur more.
@@ -224,22 +197,25 @@ object FrameHandler {
             return
         }
 
-        // 3. Verify the centroid makes sense. If it doesn't, don't assume we have a fingertip.
-//        if (Imgproc.pointPolygonTest(oldContour, handCentroid, false) <= 0)
-//            return
-//        maxContour.convertTo(oldContour, CvType.CV_32F)
-
         // 3. Draw a circle at the centroid.
         Imgproc.circle(mRgb, handCentroid, 5, Scalar(255.0, 0.0, 255.0), -1)
 
         // 4. Compute convex hull of hand and get convexity defects (space between hull and actual contour).
-//        Imgproc.convexHull(maxContour, hull)
-//        Imgproc.convexityDefects(maxContour, hull, defects)
+        Imgproc.convexHull(maxContour, hull)
+        Imgproc.convexityDefects(maxContour, hull, defects)
 
         // 5. Compute furthest point from a defect to the centroid. This point is assumed to be the finger tip.
         val fingerPoint = furthestPoint(defects, maxContour, handCentroid)
         if (fingerPoint != null) {
-            // Add location to list of recently seen fingertip positions.
+            // Add location to list of recently seen fingertip positions, but only if it makes sense.
+            if (drawn_points.isNotEmpty()) {
+                val lastPoint = drawn_points.last
+                val epsilon = 90
+                if (Math.sqrt(Math.pow(lastPoint.y - fingerPoint.y, 2.0) + Math.pow(lastPoint.x - fingerPoint.x, 2.0))> epsilon) {
+                    return
+                }
+            }
+
             if (drawn_points.size < maxCaptures) {
                 drawn_points.add(fingerPoint)
             } else {
@@ -365,51 +341,33 @@ object FrameHandler {
             Imgproc.circle(mRgb, drawn_points[i], 5, Scalar(0.0, 255.0, 255.0), -1)
         }
     }
+
+    /**
+     * Determines if the last 1/8 of points appear to be stationary,
+     * indicating that the user is finished drawing a character.
+     */
+    private fun stationary(): Boolean {
+        if (drawn_points.size < maxCaptures) return false
+
+        val lastFactor: Double = 7.0 / 8
+        val startIndex = (maxCaptures * lastFactor).toInt()
+        var maxX = drawn_points[startIndex].x
+        var minX = drawn_points[startIndex].x
+        var maxY = drawn_points[startIndex].y
+        var minY = drawn_points[startIndex].y
+
+        for (i in startIndex until maxCaptures) {
+            val x = drawn_points[i].x
+            val y = drawn_points[i].y
+            if (x > maxX) maxX = x
+            if (x < minX) minX = x
+            if (y > maxY) maxY = y
+            if (y < minY) minY = y
+        }
+
+        val epsilon = 14
+        if (maxX - minX > epsilon) return false
+        if (maxY - minY > epsilon) return false
+        return true
+    }
 }
-
-// ----------------------------------------------------------------
-// Experimental Code Notes
-// ----------------------------------------------------------------
-
-//    private fun furthestPoint(defects: MatOfInt4, contour: MatOfPoint, centroid: Point): Point? {
-//        val s = defects.get(0, 0)[0].toInt()
-//        val cx = centroid.x
-//        val cy = centroid.y
-//
-//        val x: Mat = contour.get(s, 0)
-//        val y = contour.get(s, 0)
-//
-//        val diffx = Mat()
-//        subtract(x, cx, diffx)
-//        val xp = Mat()
-//        pow(diffx, 2.0, xp)
-//
-//        val sumMat = Mat()
-//        sum(xp, yp, sumMat)
-//        val distMat = Mat()
-//        sqrt(sumMat, distMat)
-//        val dist_max_i = argMax(distMat)
-//
-//        if (dist_max_i < s.length) {
-//            val farthest_defect = s[dist_max_i]
-//            farthest_point = contour[farthest_defect][0]
-//            return farthest_point
-//        } else {
-//            return null
-//        }
-//    }
-
-//    private fun argMax(vals: Mat): Int {
-//
-//        var max_i = 0
-//        var max_val = vals.get(0, 0)
-//        for (i in 0 until vals.rows()) {
-//            for (j in 0 until vals.cols()) {
-//                if (vals.get(i, j) > max_val) {
-//                    max_val = vals.get(i, j)
-//                    max_i = vals.cols() * i + j)
-//                }
-//            }
-//        }
-//        return max_i
-//    }
