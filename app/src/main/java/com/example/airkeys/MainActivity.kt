@@ -12,8 +12,11 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.Toast
 import org.opencv.android.*
-import org.opencv.core.*
 import org.opencv.imgproc.Imgproc
+import org.opencv.core.Core
+import org.opencv.core.Mat
+
+
 
 class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
 
@@ -140,6 +143,10 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
             Imgproc.cvtColor(mRgb, mRgb, Imgproc.COLOR_BGR2RGB)
             // Flip image for display if using a front-facing camera (eg. laptop)
             Core.flip(mRgb, mRgb, 1)
+        } else {
+            // Flip on phone so you can use it in portrait mode
+            Core.transpose(mRgb, mRgb)
+            Core.flip(mRgb, mRgb, 1)
         }
 
         // Process frame and display character if recognized.
@@ -148,6 +155,11 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
             runOnUiThread {
                 Toast.makeText(this, character, Toast.LENGTH_LONG).show()
             }
+        }
+
+        if (!emulated) {
+            Core.flip(mRgb, mRgb, 1)
+            Core.transpose(mRgb, mRgb)
         }
         return mRgb
     }
