@@ -16,8 +16,6 @@ import org.opencv.imgproc.Imgproc
 import org.opencv.core.Core
 import org.opencv.core.Mat
 
-
-
 class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
 
     private lateinit var mOpenCvCameraView: CameraBridgeViewBase

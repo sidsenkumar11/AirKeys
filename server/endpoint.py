@@ -2,18 +2,22 @@ from PIL import Image, ImageDraw, ImageOps
 import ast
 import base64
 import json
+import os
 import socket
 import sys
 import numpy as np
 import char_predict
 
 HOST, PORT = '', 5000
-id_val = 0
+id_val = len(os.listdir('./images'))
 
 def handle_data(data):
     global id_val
     # Get points
-    json_obj = json.loads(data)
+    try:
+        json_obj = json.loads(data)
+    except:
+        return "Server says: Malformed JSON; try again!"
     points_list = json_obj['points']
     points_list = ast.literal_eval(json_obj['points'])
 
@@ -53,7 +57,7 @@ def main():
     while 1:
         conn, addr = s.accept()
         print('Connected with ' + addr[0] + ':' + str(addr[1]))
-        data = conn.recv(4096)
+        data = conn.recv(4096 * 4)
         letter = handle_data(data)
         conn.sendall(letter)
         conn.close()
