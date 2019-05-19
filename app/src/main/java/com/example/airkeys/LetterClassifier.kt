@@ -11,7 +11,7 @@ import java.io.OutputStreamWriter
 import java.net.Socket
 
 object LetterClassifier {
-    private const val TAG = "--------------------------------------------------------"
+    private const val TAG = "-----------------------"
     private const val IP_ADDR = "104.236.98.126"
     private const val PORT    = 5000
 

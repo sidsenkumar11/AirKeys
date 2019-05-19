@@ -15,6 +15,9 @@ object FrameHandler {
     private lateinit var mThreshed: Mat
     private lateinit var hull: MatOfInt
     private lateinit var defects: MatOfInt4
+    private lateinit var mGrayHand: Mat
+    private lateinit var mGrayThresh: Mat
+    private lateinit var mThreshed3D: Mat
 
     // One-time vars needed for histograms
     private lateinit var hand_rect_row_nw: List<Int>
@@ -49,7 +52,10 @@ object FrameHandler {
         mHsv        = Mat()
         mFiltered   = Mat()
         mThreshed   = Mat()
-        disc = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, Size(31.0, 31.0))
+        mGrayHand   = Mat()
+        mGrayThresh = Mat()
+        mThreshed3D = Mat()
+        disc = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, Size(7.0, 7.0))
         this.emulated = emulated
 
         // Fingertip Detection
@@ -153,7 +159,7 @@ object FrameHandler {
             MatOfFloat(0.toFloat(), 180.toFloat(), 0.toFloat(), 256.toFloat()), 1.toDouble())
 
         // 3. Reduce some noise by blurring
-        Imgproc.GaussianBlur(mHsv, mHsv, Size(7.0, 7.0),0.0)
+        Imgproc.GaussianBlur(mFiltered, mFiltered, Size(7.0, 7.0),0.0)
 
         // 4. Smooth the filtered image
         // a) Convolve the image using a disc to blur more.
@@ -161,6 +167,10 @@ object FrameHandler {
 
         // b) Applies fixed-level threshold to each array element to convert it to a binary image.
         Imgproc.threshold(mFiltered, mThreshed, 90.0, 255.0, Imgproc.THRESH_BINARY)
+
+        // c) Merges thresh matrices to make 3 channels, since mRgb is a 3-channel matrix.
+        Core.merge(arrayListOf(mThreshed, mThreshed, mThreshed), mThreshed3D)
+        Core.bitwise_and(mRgb, mThreshed3D, mRgb)
 
         // 5. Filter out smaller contours
         val maxContour = maxContour() ?: return null
@@ -236,7 +246,7 @@ object FrameHandler {
         // Use simplified convex hull (merging neighbors) to find defects
         val mergedHull = roughHull(contour)
         Imgproc.convexityDefects(contour, mergedHull, defects)
-        // drawDefects(contour)
+         drawDefects(contour)
 
         // Apply law of cosines to find out how many fingers open
         var count = 0
@@ -261,7 +271,8 @@ object FrameHandler {
 //            if (angle <= 50) count += 1 // <50 degrees, treat as finger
         }
         // Determine if hand is open
-        return count > 2
+//        Log.e(TAG, "${count}, ${defects.rows()}")
+        return count > 0
     }
 
     /**
@@ -366,9 +377,16 @@ object FrameHandler {
      * From a list of contours, returns the contour with the greatest area.
      */
     private fun maxContour(): MatOfPoint? {
+        // Convert RGB to grayscale
+        Imgproc.cvtColor(mRgb, mGrayHand, Imgproc.COLOR_RGB2GRAY)
+
+        // Applies fixed-level threshold to each array element so we can get contours from it.
+        // This converts the grayscale image to a binary image.
+        Imgproc.threshold(mGrayHand, mGrayThresh,0.0, 255.0, Imgproc.THRESH_BINARY)
+
         // Find contours in a binary image.
         val contours = arrayListOf<MatOfPoint>()
-        Imgproc.findContours(mThreshed, contours, Mat(), Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE)
+        Imgproc.findContours(mGrayThresh, contours, Mat(), Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE)
         return contours.maxBy { Imgproc.contourArea(it) }
     }
 
