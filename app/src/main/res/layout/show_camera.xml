@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              android:orientation="vertical" android:layout_width="match_parent"
-              xmlns:opencv="http://schemas.android.com/apk/res-auto"
-              android:layout_height="match_parent">
+<android.support.constraint.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+                                             xmlns:opencv="http://schemas.android.com/apk/res-auto"
+                                             xmlns:tools="http://schemas.android.com/tools" android:orientation="horizontal"
+                                             android:layout_width="match_parent"
+                                             android:layout_height="match_parent">
 
     <org.opencv.android.JavaCameraView
             android:layout_width="fill_parent"
@@ -11,5 +12,38 @@
             android:id="@+id/camera_activity_view"
             opencv:show_fps="true"
             opencv:camera_id="any"
-            android:onClick="screenTapped" />
-</LinearLayout>
+            android:onClick="screenTapped"
+    />
+    <TextView
+            android:layout_width="368dp"
+            android:layout_height="96dp"
+            android:paddingTop="50dp"
+            android:background="#AA000000"
+            android:textColor="#ffffffff"
+            android:rotation="-90"
+            android:text="Input: " android:id="@+id/textView"
+            opencv:layout_constraintEnd_toEndOf="parent" android:layout_marginBottom="8dp"
+            opencv:layout_constraintBottom_toBottomOf="parent" android:layout_marginTop="8dp"
+            opencv:layout_constraintTop_toTopOf="parent" opencv:layout_constraintVertical_bias="0.498"
+            android:layout_marginEnd="8dp" android:layout_marginStart="8dp"
+            opencv:layout_constraintStart_toStartOf="parent" opencv:layout_constraintHorizontal_bias="1.0"/>
+
+    <TextView
+            android:id="@+id/rotated_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentLeft="true"
+            android:layout_centerVertical="true"
+            android:alpha=".3"
+            android:background="#AA000000"
+            android:gravity="center"
+            android:textColor="@android:color/white"
+            android:textSize="14sp"
+            android:padding="4dp"
+            android:rotation="-90"
+            android:text="Andrew Coder" android:layout_marginEnd="8dp"
+            opencv:layout_constraintEnd_toEndOf="parent" android:layout_marginStart="8dp"
+            opencv:layout_constraintStart_toStartOf="parent" opencv:layout_constraintBottom_toBottomOf="parent"
+            android:layout_marginBottom="8dp" android:layout_marginTop="8dp"
+            opencv:layout_constraintTop_toTopOf="parent"/>
+</android.support.constraint.ConstraintLayout>

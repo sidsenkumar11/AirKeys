@@ -18,7 +18,7 @@ import org.opencv.core.Core
 import org.opencv.core.Mat
 import android.view.KeyEvent.KEYCODE_VOLUME_DOWN
 import android.view.KeyEvent.KEYCODE_VOLUME_UP
-
+import android.widget.TextView
 
 
 class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
@@ -180,6 +180,16 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
         if (character != null) {
             runOnUiThread {
                 Toast.makeText(this, character, Toast.LENGTH_LONG).show()
+                val text: TextView = findViewById(R.id.textView) as TextView
+                var str: String = text.text.toString()
+                if (character == "<space>") {
+                    str += " "
+                } else if (character == "<period>") {
+                    str += "."
+                } else {
+                    str += character
+                }
+                text.setText(str)
             }
         }
 
