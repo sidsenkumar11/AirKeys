@@ -7,6 +7,7 @@ import android.os.*
 import android.support.v4.app.ActivityCompat
 import android.support.v4.content.ContextCompat
 import android.util.Log
+import android.view.KeyEvent
 import android.view.SurfaceView
 import android.view.View
 import android.view.WindowManager
@@ -15,6 +16,10 @@ import org.opencv.android.*
 import org.opencv.imgproc.Imgproc
 import org.opencv.core.Core
 import org.opencv.core.Mat
+import android.view.KeyEvent.KEYCODE_VOLUME_DOWN
+import android.view.KeyEvent.KEYCODE_VOLUME_UP
+
+
 
 class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
 
@@ -65,6 +70,29 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
         if (!FrameHandler.histCreated) {
             FrameHandler.shouldCreateHist = true
             FrameHandler.histCreated = true
+        }
+    }
+
+    /**
+     * Clear screen on volume up and send character on volume down.
+     */
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        val action = event.action
+        when (event.keyCode) {
+            KEYCODE_VOLUME_UP -> {
+                if (action == KeyEvent.ACTION_DOWN && FrameHandler.histCreated) {
+                    FrameHandler.clearScreen = true
+                }
+                return true
+            }
+            KEYCODE_VOLUME_DOWN -> {
+                if (action == KeyEvent.ACTION_DOWN && FrameHandler.histCreated) {
+                    // Send character on volume down
+                    FrameHandler.sendDrawing = true
+                }
+                return true
+            }
+            else -> return super.dispatchKeyEvent(event)
         }
     }
 

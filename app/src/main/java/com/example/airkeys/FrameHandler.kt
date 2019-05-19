@@ -36,8 +36,10 @@ object FrameHandler {
     private var freeze   = false
     var histCreated      = false
     var shouldCreateHist = false
+    var sendDrawing      = false
+    var clearScreen      = false
     private const val NUM_RECTS = 9
-    private const val MAX_CAPTURES = 100
+    private const val MAX_CAPTURES = 90
     private const val GESTURE_HISTORY_LENGTH = 5
     private const val TAG = "-------------- OUR LOG"
     // Define lambda for updating gesture history
@@ -75,7 +77,7 @@ object FrameHandler {
      * - Return "space" if user makes SPACE gesture.
      * - Return "period" if user makes PERIOD gesture.
      * - Draw fingertip circles if user makes DRAW gesture.*
-     * - If user stops moving their finger, they're done drawing.
+     * - If user presses volume down, they're done drawing.
      *   Send the points to a server for recognition and freeze the frame.
      */
     fun process(input: Mat): String? {
@@ -90,11 +92,18 @@ object FrameHandler {
             return null
         }
 
+        if (clearScreen) {
+            drawn_points.clear()
+            clearScreen = false
+        }
+
         // Mask away everything but the hand.
         val maxContour = applyHistMask()
 
-        if (!freeze && stationary()) {
+        // Determine if we should draw anything on the screen or classify a letter.
+        if (!freeze && sendDrawing) {
             freeze = true
+            sendDrawing = false
             drawCircles()
             return LetterClassifier.classify(drawn_points, mRgb.rows(), mRgb.cols())
         } else if (freeze) {
@@ -371,7 +380,6 @@ object FrameHandler {
 
     /**
      * Draws circles in the last several spots that a finger was last seen.
-     * The circles decrease in size to indicate they were seen longer ago.
      */
     private fun drawCircles() {
         for (i in 0 until drawn_points.size) {

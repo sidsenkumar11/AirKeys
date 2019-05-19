@@ -33,12 +33,15 @@ After you've aligned your hand, you simply need to tap the screen to complete ca
 - Making a 1 Finger "pointing" gesture allows you draw letters and digits by sliding your finger, one character at a time.
 - Making a 2 Finger "peace" gesture inserts a space character.
 - Making a 5 Finger "high-five" gesture inserts a period character.
+- Volume down sends the current dots to the server for interpreting.
+- Volume up clears the dots currently drawn on the screen.
 
 ### Drawing Notes
+- For best multi-finger gesture recognition, try to spread your fingers as much as possible (you should able to see te detected convexity defects in yellow).
 - The app currently just looks for the topmost part of your hand and uses that as the drawing instrument. So if your knuckle is higher in the frame than your finger, it'll think your knuckle is your finger.
 - Since the app is sampling every frame, your drawings must be contiguous or else we'll pick up stray dots as you move your finger around to make new strings. For some characters like "i" and "j" where it's impossible to be totally contiguous, we recommend making a dark "dot" for the tittle and then quickly jumping down to start your second stroke.
-- To finish the character and indicate you're ready for it to be sent to the server for processing, simply keep your finger steady at one location.
 - Some errors are presently unavoidable, such as confusion between "s" and "5" and capital / lowercase letters when the only difference is the size of the character.
+- To reduce random noise of 1 finger drawing if the app accidentally mis-identifies something else in the scene as your hand, the app will not draw circles or register fingertips if the last drawn point was far away from the currently detected fingertip. You should always attempt to draw contiguously from the last drawn fingertip.
 
 ## Credits/Inspiration
 Most of the hand histogram masking algorithm was learned from <a href="http://www.benmeline.com/finger-tracking-with-opencv-and-python/">here</a>. Our contribution to this was applying an additional contour filter when displaying and adding a Gaussian blur to remove extra noise. We also added functions to detect and clean convexity defects since several functions don't currently exist in Java's OpenCV implementatin.
