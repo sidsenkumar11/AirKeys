@@ -17,6 +17,7 @@ def handle_data(data):
     try:
         json_obj = json.loads(data)
     except:
+        print(data)
         return "Server says: Malformed JSON; try again!"
     points_list = json_obj['points']
     points_list = ast.literal_eval(json_obj['points'])
@@ -57,7 +58,7 @@ def main():
     while 1:
         conn, addr = s.accept()
         print('Connected with ' + addr[0] + ':' + str(addr[1]))
-        data = conn.recv(4096 * 4)
+        data = conn.recv(4096 * 10)
         letter = handle_data(data)
         conn.sendall(letter)
         conn.close()
