@@ -41,4 +41,4 @@ After you've aligned your hand, you simply need to tap the screen to complete ca
 - Some errors are presently unavoidable, such as confusion between "s" and "5" and capital / lowercase letters when the only difference is the size of the character.
 
 ## Credits/Inspiration
-Most of the hand histogram masking algorithm was learned from <a href="http://www.benmeline.com/finger-tracking-with-opencv-and-python/">here</a>. Our contribution to this was applying an additional contour filter when displaying and adding a Gaussian blur to remove extra noise.
+Most of the hand histogram masking algorithm was learned from <a href="http://www.benmeline.com/finger-tracking-with-opencv-and-python/">here</a>. Our contribution to this was applying an additional contour filter when displaying and adding a Gaussian blur to remove extra noise. We also added functions to detect and clean convexity defects since several functions don't currently exist in Java's OpenCV implementatin.
