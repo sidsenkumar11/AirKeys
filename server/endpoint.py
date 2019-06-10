@@ -7,6 +7,7 @@ import socket
 import sys
 import numpy as np
 import char_predict
+import logging
 
 HOST, PORT = '', 5000
 id_val = len(os.listdir('./images'))
@@ -57,8 +58,17 @@ def main():
     print("Everything loaded! Waiting for connections...")
     while 1:
         conn, addr = s.accept()
-        print('Connected with ' + addr[0] + ':' + str(addr[1]))
-        data = conn.recv(4096 * 10)
+        logging.warning('Connected with ' + addr[0] + ':' + str(addr[1]))
+        data_len = int(conn.recv(6))
+        
+        data = ""
+        while len(data) < data_len:
+            incoming = conn.recv(data_len - len(data))
+            if not incoming:
+                print("Only received: {}".format(data))
+                data = ""
+                break
+            data += incoming
         letter = handle_data(data)
         conn.sendall(letter)
         conn.close()
@@ -66,4 +76,5 @@ def main():
     s.close()
 
 if __name__ == '__main__':
+    logging.basicConfig(format='[%(asctime)s]: %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
     main()
