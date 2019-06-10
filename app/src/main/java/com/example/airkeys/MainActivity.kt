@@ -27,6 +27,7 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
     private lateinit var mRgb: Mat
     private val MY_PERMISSIONS_REQUEST_CAMERA = 123
     private var emulated = false
+    private lateinit var text: TextView
 
     /**
      * After the OpenCV libraries are initialized and loaded, OpenCV can run a function for you.
@@ -70,6 +71,8 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
         if (!FrameHandler.histCreated) {
             FrameHandler.shouldCreateHist = true
             FrameHandler.histCreated = true
+        } else if (emulated) {
+            FrameHandler.sendDrawing = true
         }
     }
 
@@ -104,8 +107,8 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
         emulated = Build.FINGERPRINT.contains("generic")
 
         // Show camera and set its listener
-        setContentView(R.layout.show_camera)
-        mOpenCvCameraView = findViewById(R.id.camera_activity_view)
+        setContentView(R.layout.activity_main)
+        mOpenCvCameraView = findViewById(R.id.myCameraView)
         mOpenCvCameraView.visibility = SurfaceView.VISIBLE
         mOpenCvCameraView.setCvCameraViewListener(this)
         mOpenCvCameraView.setMaxFrameSize(640, 480)
@@ -129,6 +132,9 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
         // Initialize matrices
         FrameHandler.init(emulated)
         this.mRgb = Mat()
+
+        // Set textview
+        text = findViewById(R.id.outputtext)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -179,8 +185,7 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
         val character = FrameHandler.process(mRgb)
         if (character != null) {
             runOnUiThread {
-                Toast.makeText(this, character, Toast.LENGTH_LONG).show()
-                val text: TextView = findViewById(R.id.textView) as TextView
+                Toast.makeText(this, character, Toast.LENGTH_SHORT).show()
                 var str: String = text.text.toString()
                 if (character == "<space>") {
                     str += " "
@@ -193,6 +198,7 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
             }
         }
 
+        if (FrameHandler.histCreated) mRgb = FrameHandler.mThreshed3D
         if (!emulated) {
             Core.flip(mRgb, mRgb, 1)
             Core.transpose(mRgb, mRgb)

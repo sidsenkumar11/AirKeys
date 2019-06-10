@@ -56,11 +56,11 @@ object GestureClassifier {
 
         // Convert finger count to gesture
 //        Log.e(TAG, "${count}, ${defects.rows()}")
-        when (count) {
-            0 -> return Gesture.DRAW
-            1 -> return Gesture.SPACE
-            2 -> return Gesture.PERIOD
-            else -> return Gesture.NONE
+        return when (count) {
+            0    -> Gesture.DRAW
+            1    -> Gesture.SPACE
+            2    -> Gesture.PERIOD
+            else -> Gesture.NONE
         }
     }
 

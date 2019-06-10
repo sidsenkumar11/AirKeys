@@ -5,6 +5,8 @@ import org.opencv.core.*
 import org.opencv.imgproc.Imgproc
 import java.util.*
 import kotlinx.coroutines.*
+import org.opencv.core.Mat
+
 
 object FrameHandler {
 
@@ -15,7 +17,7 @@ object FrameHandler {
     private lateinit var mThreshed: Mat
     private lateinit var mGrayHand: Mat
     private lateinit var mGrayThresh: Mat
-    private lateinit var mThreshed3D: Mat
+    lateinit var mThreshed3D: Mat
 
     // One-time vars needed for histograms
     private lateinit var hand_rect_row_nw: List<Int>
@@ -29,7 +31,7 @@ object FrameHandler {
     private val drawn_points = LinkedList<Point>()
     private val prevGestures = LinkedList<Gesture>()
     private var freezeCount = 0
-    private const val MAX_FREEZE_COUNT = 50
+    private const val MAX_FREEZE_COUNT = 20
 
     // Flag variables and constants
     private var emulated = true
@@ -38,8 +40,7 @@ object FrameHandler {
     var shouldCreateHist = false
     var sendDrawing      = false
     var clearScreen      = false
-    private const val NUM_RECTS = 9
-    private const val MAX_CAPTURES = 90
+    private const val NUM_RECTS = 24
     private const val GESTURE_HISTORY_LENGTH = 5
     private const val TAG = "-------------- OUR LOG"
     // Define lambda for updating gesture history
@@ -189,12 +190,7 @@ object FrameHandler {
                         return null
                     }
                 }
-                if (drawn_points.size < MAX_CAPTURES) {
-                    drawn_points.add(fingerPoint)
-                } else {
-                    drawn_points.removeFirst()
-                    drawn_points.add(fingerPoint)
-                }
+                drawn_points.add(fingerPoint)
                 Imgproc.circle(mRgb, fingerPoint, 5, Scalar(0.0, 255.0, 255.0), -1)
                 return null
             }
@@ -244,14 +240,14 @@ object FrameHandler {
             MatOfFloat(0.toFloat(), 180.toFloat(), 0.toFloat(), 256.toFloat()), 1.toDouble())
 
         // 3. Reduce some noise by blurring
-        Imgproc.GaussianBlur(mFiltered, mFiltered, Size(7.0, 7.0),0.0)
+        Imgproc.GaussianBlur(mFiltered, mFiltered, Size(7.0, 7.0), 0.0)
 
         // 4. Smooth the filtered image
         // a) Convolve the image using a disc to blur more.
         Imgproc.filter2D(mFiltered, mFiltered, -1, disc)
 
         // b) Applies fixed-level threshold to each array element to convert it to a binary image.
-        Imgproc.threshold(mFiltered, mThreshed, 90.0, 255.0, Imgproc.THRESH_BINARY)
+        Imgproc.threshold(mFiltered, mThreshed, 100.0, 255.0, Imgproc.THRESH_BINARY)
 
         // c) Merges thresh matrices to make 3 channels, since mRgb is a 3-channel matrix.
         Core.merge(arrayListOf(mThreshed, mThreshed, mThreshed), mThreshed3D)
@@ -264,37 +260,8 @@ object FrameHandler {
 
         // 6. Apply the final filter to the original image
         Core.bitwise_and(mRgb, justContour, mRgb)
+//        Imgproc.medianBlur(mRgb, mRgb, 7)
         return maxContour
-    }
-
-    /**
-     * Determines if the last 1/8 of points appear to be stationary,
-     * indicating that the user is finished drawing a character.
-     */
-    private fun stationary(): Boolean {
-        if (drawn_points.size < MAX_CAPTURES) return false
-
-//        val lastFactor: Double = 7.0 / 8
-//        val startIndex = (MAX_CAPTURES * lastFactor).toInt()
-        val startIndex = MAX_CAPTURES - 9
-        var maxX = drawn_points[startIndex].x
-        var minX = drawn_points[startIndex].x
-        var maxY = drawn_points[startIndex].y
-        var minY = drawn_points[startIndex].y
-
-        for (i in startIndex until MAX_CAPTURES) {
-            val x = drawn_points[i].x
-            val y = drawn_points[i].y
-            if (x > maxX) maxX = x
-            if (x < minX) minX = x
-            if (y > maxY) maxY = y
-            if (y < minY) minY = y
-        }
-
-        val epsilon = 14
-        if (maxX - minX > epsilon) return false
-        if (maxY - minY > epsilon) return false
-        return true
     }
 
     /**
@@ -357,11 +324,21 @@ object FrameHandler {
         val y_margin = 0
         // Generate lists of points for rectangles
         hand_rect_row_nw = arrayListOf(
+            x_margin + 2 * rows / 20, x_margin + 2 * rows / 20, x_margin + 2 * rows / 20,
+            x_margin + 4 * rows / 20, x_margin + 4 * rows / 20, x_margin + 4 * rows / 20,
             x_margin + 6 * rows / 20, x_margin + 6 * rows / 20, x_margin + 6 * rows / 20,
             x_margin + 8 * rows / 20, x_margin + 8 * rows / 20, x_margin + 8 * rows / 20,
-            x_margin + 10 * rows / 20, x_margin + 10 * rows / 20, x_margin + 10 * rows / 20
+            x_margin + 10 * rows / 20, x_margin + 10 * rows / 20, x_margin + 10 * rows / 20,
+            x_margin + 12 * rows / 20, x_margin + 12 * rows / 20, x_margin + 12 * rows / 20,
+            x_margin + 14 * rows / 20, x_margin + 14 * rows / 20, x_margin + 14 * rows / 20,
+            x_margin + 16 * rows / 20, x_margin + 16 * rows / 20, x_margin + 16 * rows / 20
         )
         hand_rect_col_nw = arrayListOf(
+            y_margin + 9 * cols / 20, y_margin + 10 * cols / 20, y_margin + 11 * cols / 20,
+            y_margin + 9 * cols / 20, y_margin + 10 * cols / 20, y_margin + 11 * cols / 20,
+            y_margin + 9 * cols / 20, y_margin + 10 * cols / 20, y_margin + 11 * cols / 20,
+            y_margin + 9 * cols / 20, y_margin + 10 * cols / 20, y_margin + 11 * cols / 20,
+            y_margin + 9 * cols / 20, y_margin + 10 * cols / 20, y_margin + 11 * cols / 20,
             y_margin + 9 * cols / 20, y_margin + 10 * cols / 20, y_margin + 11 * cols / 20,
             y_margin + 9 * cols / 20, y_margin + 10 * cols / 20, y_margin + 11 * cols / 20,
             y_margin + 9 * cols / 20, y_margin + 10 * cols / 20, y_margin + 11 * cols / 20
