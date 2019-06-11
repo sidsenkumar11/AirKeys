@@ -191,7 +191,7 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
                     str += " "
                 } else if (character == "<period>") {
                     str += "."
-                } else {
+                } else if (character.length == 1) {
                     str += character
                 }
                 text.setText(str)

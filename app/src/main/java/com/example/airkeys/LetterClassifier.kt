@@ -20,7 +20,14 @@ object LetterClassifier {
             // Send JSON of image data over network to server
             val s = Socket(IP_ADDR, PORT)
             val outWriter = BufferedWriter(OutputStreamWriter(s.getOutputStream()))
-            outWriter.write(pointsToJson(points, rows, cols))
+
+            // Send length of data
+            val data = pointsToJson(points, rows, cols)
+            val data_len = String.format("%06d", data.length)
+            outWriter.write(data_len)
+
+            // Send actual data
+            outWriter.write(data)
             outWriter.flush()
 
             // Retrieve letter response
