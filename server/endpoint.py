@@ -59,7 +59,11 @@ def main():
     while 1:
         conn, addr = s.accept()
         logging.warning('Connected with ' + addr[0] + ':' + str(addr[1]))
-        data_len = int(conn.recv(6))
+        try:
+            data_len = int(conn.recv(6))
+        except:
+            print("Got weird data_len...")
+            data_len = 0
         
         data = ""
         while len(data) < data_len:
